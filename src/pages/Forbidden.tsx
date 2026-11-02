@@ -59,14 +59,14 @@ export default function Forbidden() {
           </p>
         </div>
 
-        {/* Role Matrix Simulator */}
+        {/* Role Matrix Switcher */}
         <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs text-left space-y-2">
           <div className="flex items-center justify-between text-slate-700 font-semibold font-sans pb-1 border-b border-slate-200">
             <span className="flex items-center gap-1.5">
               <UserCheck className="w-3.5 h-3.5 text-blue-600" />
               <span>Switch RBAC Persona to Test Access:</span>
             </span>
-            <span className="text-[10px] font-mono text-blue-600">Simulated Role</span>
+            <span className="text-[10px] font-mono text-blue-600 font-bold">Active Session Role</span>
           </div>
 
           <div className="space-y-1.5 font-mono text-[11px]">

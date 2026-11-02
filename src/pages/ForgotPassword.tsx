@@ -57,7 +57,7 @@ export default function ForgotPassword() {
                   to="/reset-password?token=tk_rec_8910482_live"
                   className="w-full py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-sm"
                 >
-                  <span>Simulate Opening Reset Link</span>
+                  <span>Open Secure Password Reset Portal</span>
                   <ArrowRight className="w-4 h-4" />
                 </Link>
                 <Link

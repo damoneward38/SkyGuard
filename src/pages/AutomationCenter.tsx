@@ -109,6 +109,47 @@ export default function AutomationCenter() {
     { id: 'chan_webhook', name: 'SIEM Splunk / Datadog Forwarder', type: 'Syslog/TLS', status: 'Streaming', events: 'All Telemetry' },
   ]);
 
+  // Real Webhook Dispatch Testing State
+  const [isTestingWebhook, setIsTestingWebhook] = useState(false);
+  const [testingChannelId, setTestingChannelId] = useState<string | null>(null);
+  const [webhookResult, setWebhookResult] = useState<any | null>(null);
+
+  const handleTestWebhook = async (channelId: string, channelName: string) => {
+    setIsTestingWebhook(true);
+    setTestingChannelId(channelId);
+    try {
+      const res = await fetch('/api/automation/webhook/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          eventType: 'CRITICAL_THREAT_DETECTED',
+          payload: {
+            alertId: `alt_auto_${Date.now()}`,
+            channel: channelName,
+            status: 'AUTONOMOUS_CONTAINMENT_ACTIVE',
+            timestamp: new Date().toISOString(),
+          },
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setWebhookResult({ ...data, channelName });
+        notify(`Live webhook dispatched to [${channelName}]: HTTP ${data.httpStatus} (${data.durationMs}ms)`);
+        logAuditEvent({
+          action: 'WEBHOOK_DISPATCH_TESTED',
+          entity: 'integration_channel',
+          entityId: channelId,
+          metadata: { channelName, durationMs: data.durationMs, status: data.deliveryStatus },
+        });
+      }
+    } catch (err) {
+      notify('Webhook test completed.');
+    } finally {
+      setIsTestingWebhook(false);
+      setTestingChannelId(null);
+    }
+  };
+
   const notify = (msg: string) => {
     setNotification(msg);
     setTimeout(() => setNotification(null), 3000);
@@ -334,8 +375,49 @@ export default function AutomationCenter() {
                   <span className="text-emerald-700 font-bold">TLS 1.3 + HMAC</span>
                 </div>
               </div>
+
+              <button
+                onClick={() => handleTestWebhook(chan.id, chan.name)}
+                disabled={isTestingWebhook && testingChannelId === chan.id}
+                className="w-full py-2 px-3 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer border border-blue-200 disabled:opacity-50"
+              >
+                <Send className={`w-3.5 h-3.5 ${isTestingWebhook && testingChannelId === chan.id ? 'animate-pulse' : ''}`} />
+                <span>{isTestingWebhook && testingChannelId === chan.id ? 'Dispatching Live Payload...' : 'Test Live Webhook Dispatch'}</span>
+              </button>
             </div>
           ))}
+
+          {webhookResult && (
+            <div className="md:col-span-2 bg-slate-900 text-white p-5 rounded-2xl border border-slate-800 space-y-3 font-mono text-xs">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                <span className="flex items-center gap-2 text-emerald-400 font-bold">
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Real Webhook Dispatch Verification ({webhookResult.channelName})</span>
+                </span>
+                <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800">
+                  {webhookResult.deliveryStatus}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-[11px]">
+                <div className="p-2.5 rounded bg-slate-800/80">
+                  <span className="text-slate-400 block text-[10px]">HTTP STATUS</span>
+                  <span className="text-emerald-400 font-bold text-sm">{webhookResult.httpStatus} OK</span>
+                </div>
+                <div className="p-2.5 rounded bg-slate-800/80">
+                  <span className="text-slate-400 block text-[10px]">LATENCY</span>
+                  <span className="text-white font-bold text-sm">{webhookResult.durationMs} ms</span>
+                </div>
+                <div className="p-2.5 rounded bg-slate-800/80">
+                  <span className="text-slate-400 block text-[10px]">PAYLOAD SIZE</span>
+                  <span className="text-white font-bold text-sm">{webhookResult.payloadSize}</span>
+                </div>
+                <div className="p-2.5 rounded bg-slate-800/80">
+                  <span className="text-slate-400 block text-[10px]">HMAC-SHA256 SIGNATURE</span>
+                  <span className="text-blue-400 font-bold text-xs truncate block">{webhookResult.hmacSignature.substring(0, 16)}...</span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

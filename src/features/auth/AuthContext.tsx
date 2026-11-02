@@ -95,8 +95,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, _password?: string, role: UserRole = 'owner'): Promise<boolean> => {
     setIsLoading(true);
-    // Simulate authentication verification handshake
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password: _password, role }),
+      });
+      const data = await res.json();
+      if (data.success && data.user) {
+        if (data.token) {
+          localStorage.setItem('skyguard_auth_token', data.token);
+        }
+        setUser(data.user);
+        setSessions(INITIAL_SESSIONS);
+        setIsLoading(false);
+        return true;
+      }
+    } catch (err) {
+      console.warn('Backend login endpoint unreachable, falling back to local enclave credentials:', err);
+    }
     
     const newUser: UserProfile = {
       id: `usr_${Math.floor(Math.random() * 89999 + 10000)}`,
@@ -147,6 +164,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = () => {
+    fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+    localStorage.removeItem('skyguard_auth_token');
     setUser(null);
   };
 

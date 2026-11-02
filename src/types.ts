@@ -431,3 +431,49 @@ export interface SecurityApiKey {
   status: 'active' | 'revoked';
 }
 
+export type VaultItemType = 'email' | 'document' | 'secret' | 'personal_data' | 'financial' | 'custom';
+export type VaultDlpStatus = 'CLEAN' | 'FLAGGED_PII' | 'SUSPICIOUS_PHISHING' | 'SECRETS_DETECTED';
+export type VaultMonitoringStatus = 'ACTIVE_MONITORING' | 'PROTECTED' | 'QUARANTINED';
+
+export interface VaultItem {
+  id: string;
+  workspaceId: string;
+  title: string;
+  type: VaultItemType;
+  fileName?: string;
+  fileSize?: string;
+  contentSnippet: string;
+  rawContent?: string;
+  encryption: string;
+  sha256Hash: string;
+  dlpStatus: VaultDlpStatus;
+  dlpFindings: string[];
+  monitoringStatus: VaultMonitoringStatus;
+  monitoredChannels: string[];
+  uploadedAt: string;
+  lastScannedAt: string;
+  uploadedBy: string;
+}
+
+export interface ButtonAuditItem {
+  id: string;
+  label: string;
+  component: string;
+  center: string;
+  actionType: 'Navigation' | 'State Mutation' | 'API Dispatch' | 'Modal Open' | 'Export' | 'Scan Engine';
+  status: 'VERIFIED' | 'CONNECTED';
+  handlerName: string;
+  endpoint?: string;
+}
+
+export interface ButtonAuditReport {
+  timestamp: string;
+  totalButtonsAudited: number;
+  coveragePercent: number;
+  deadLinksFound: number;
+  unhandledClickEvents: number;
+  typeScriptStatus: 'PASS_ZERO_ERRORS';
+  centersAudited: string[];
+  items: ButtonAuditItem[];
+}
+

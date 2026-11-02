@@ -49,13 +49,14 @@ When projects are exported from cloud AI environments to GitHub or deployed to *
 │   ├── components/            # Reusable UI components & layouts (AppLayout, Navbar, etc.)
 │   ├── hooks/                 # React Context hooks (useAuth, useWorkspace, useWhiteLabel)
 │   ├── pages/                 # 6 Centers & Views
+│   │   ├── SecureVault.tsx        # Protected Info, Email & Asset Vault
 │   │   ├── SecurityCenter.tsx     # 1. Threat Detection & Ingestion
 │   │   ├── PrivacyCenter.tsx      # 2. Consent, DSAR & DLP
 │   │   ├── ComplianceCenter.tsx   # 3. GDPR, HIPAA, SOC 2, ISO 27001
 │   │   ├── IdentityCenter.tsx     # 4. Zero-Trust IAM, MFA & Passkeys
 │   │   ├── AutomationCenter.tsx   # 5. SOAR Playbooks & Webhooks
 │   │   ├── PlatformCenter.tsx     # 6. Tenants, Billing & Governance
-│   │   ├── OperationsConsole.tsx  # Operations: E2E Labs & Benchmarks
+│   │   ├── OperationsConsole.tsx  # Operations: E2E Labs & Button Audit
 │   │   ├── Dashboard.tsx          # Real-time Telemetry & Threat Radar
 │   │   └── ...
 │   ├── types/                 # Shared TypeScript interfaces & types

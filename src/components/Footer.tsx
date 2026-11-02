@@ -54,33 +54,33 @@ export default function Footer() {
           {/* Pricing & White-Label */}
           <div className="space-y-3">
             <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900">
-              Licensing &amp; Solutions
+              Licensing &amp; Checkout
             </h4>
             <ul className="space-y-2">
               <li>
-                <Link to="/pricing" className="hover:text-blue-600 transition-colors text-slate-600 font-medium">
-                  Basic Plan ($49/mo – 30 Features)
+                <Link to="/checkout?plan=basic" className="hover:text-blue-600 transition-colors text-slate-600 font-medium">
+                  Starter Shield ($49/mo – 30 Features)
                 </Link>
               </li>
               <li>
-                <Link to="/pricing" className="hover:text-blue-600 transition-colors text-slate-600 font-medium">
-                  Pro Plan ($149/mo – 60 Features + WAF)
+                <Link to="/checkout?plan=pro" className="hover:text-blue-600 transition-colors text-slate-600 font-medium">
+                  Growth Sovereign ($149/mo – 60 Features)
                 </Link>
               </li>
               <li>
-                <Link to="/pricing" className="hover:text-blue-600 transition-colors text-slate-600 font-medium">
-                  Enterprise Tier (Full 78 Modules + 24/7 SOC)
+                <Link to="/checkout?plan=enterprise" className="hover:text-blue-600 transition-colors text-slate-600 font-medium">
+                  Sovereign Enterprise ($499/mo – Full 78 Modules)
                 </Link>
               </li>
               <li>
-                <Link to="/white-label" className="text-blue-600 hover:text-blue-700 transition-colors flex items-center gap-1 font-bold">
-                  <span>White‑Label Licensing ($3M–$25M)</span>
+                <Link to="/checkout?plan=whitelabel" className="text-blue-600 hover:text-blue-700 transition-colors flex items-center gap-1 font-bold">
+                  <span>White‑Label Sovereign License Checkout</span>
                   <ArrowUpRight className="w-3 h-3" />
                 </Link>
               </li>
               <li>
-                <Link to="/white-label" className="hover:text-blue-600 transition-colors text-slate-600 font-medium">
-                  5-Year Sovereign SLA &amp; Source Code
+                <Link to="/pricing" className="hover:text-blue-600 transition-colors text-slate-600 font-medium">
+                  Compare All Pricing Plans &amp; ROI
                 </Link>
               </li>
             </ul>

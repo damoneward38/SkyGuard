@@ -10,6 +10,29 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Suppress harmless Vite HMR WebSocket connection warnings in AI Studio preview iframe -->
+    <script>
+      (function() {
+        var isWsError = function(err) {
+          if (!err) return false;
+          var msg = (err.message || (err.reason && err.reason.message) || String(err));
+          var stack = (err.stack || (err.reason && err.reason.stack) || '');
+          return msg.includes('WebSocket') || msg.includes('vite-hmr') || stack.includes('@vite/client');
+        };
+        window.addEventListener('unhandledrejection', function(event) {
+          if (isWsError(event.reason)) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+          }
+        }, true);
+        window.addEventListener('error', function(event) {
+          if (isWsError(event.error) || (event.message && event.message.includes('WebSocket')) || (event.filename && event.filename.includes('@vite/client'))) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+          }
+        }, true);
+      })();
+    </script>
     <!-- Single Page App routing script for GitHub Pages -->
     <script type="text/javascript">
       (function(l) {

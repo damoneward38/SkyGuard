@@ -162,6 +162,15 @@ export default function Navbar({ onOpenRadar }: NavbarProps) {
               </Link>
 
               <Link
+                to="/checkout"
+                className={`hover:text-white transition-colors ${
+                  location.pathname === '/checkout' ? 'text-white font-semibold' : ''
+                }`}
+              >
+                Checkout
+              </Link>
+
+              <Link
                 to="/white-label"
                 className={`hover:text-white transition-colors ${
                   location.pathname === '/white-label' 
@@ -186,26 +195,40 @@ export default function Navbar({ onOpenRadar }: NavbarProps) {
           </div>
 
           {/* Desktop Right CTAs */}
-          <div className="hidden md:flex items-center gap-4">
+          <div className="hidden md:flex items-center gap-3">
             {isAuthenticated ? (
-              <Link
-                to="/app/dashboard"
-                className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded shadow-md transition-colors inline-flex items-center gap-2 font-mono"
-              >
-                <LayoutDashboard className="w-3.5 h-3.5" />
-                <span>Console ({user?.role?.replace('_', ' ')})</span>
-              </Link>
+              <div className="flex items-center gap-2">
+                <Link
+                  to="/checkout"
+                  className="text-xs font-semibold px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors"
+                >
+                  Manage Plan
+                </Link>
+                <Link
+                  to="/app/dashboard"
+                  className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded shadow-md transition-colors inline-flex items-center gap-2 font-mono"
+                >
+                  <LayoutDashboard className="w-3.5 h-3.5" />
+                  <span>Console ({user?.role?.replace('_', ' ')})</span>
+                </Link>
+              </div>
             ) : (
               <>
                 <Link
                   to="/login"
                   className="text-sm font-semibold text-slate-300 hover:text-white transition-colors"
                 >
-                  Log In
+                  Sign In
+                </Link>
+                <Link
+                  to="/checkout"
+                  className="bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold px-3 py-2 rounded border border-slate-700 transition-colors"
+                >
+                  Buy License
                 </Link>
                 <Link
                   to="/signup"
-                  className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded shadow-md transition-colors inline-flex items-center justify-center"
+                  className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3.5 py-2 rounded shadow-md transition-colors inline-flex items-center justify-center"
                 >
                   Start Free Trial
                 </Link>
@@ -261,6 +284,14 @@ export default function Navbar({ onOpenRadar }: NavbarProps) {
             className="block px-3 py-2 rounded-md text-base font-medium text-slate-200 hover:bg-slate-800"
           >
             Pricing Plans
+          </Link>
+
+          <Link
+            to="/checkout"
+            onClick={() => setMobileMenuOpen(false)}
+            className="block px-3 py-2 rounded-md text-base font-medium text-slate-200 hover:bg-slate-800"
+          >
+            Enterprise Checkout
           </Link>
 
           <Link

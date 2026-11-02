@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { 
   Sparkles, 
   ShieldCheck, 
@@ -1153,6 +1154,16 @@ export default function WhiteLabel() {
 
                   <div className="text-xs text-slate-600 leading-relaxed font-sans">
                     A dedicated SkyGuard Enterprise Account Executive and Lead Cryptographic Architect have been assigned to your deployment.
+                  </div>
+
+                  <div className="pt-2">
+                    <Link
+                      to="/checkout?plan=whitelabel"
+                      className="w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <span>Proceed to Sovereign Enclave Checkout</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </Link>
                   </div>
                 </div>
               ) : (

@@ -181,10 +181,10 @@ export default function Pricing() {
                   </div>
                 </div>
 
-                {/* Card CTA Button */}
-                <div>
-                  <button
-                    onClick={() => handleStartTrial(tier)}
+                {/* Card CTA Buttons */}
+                <div className="space-y-2">
+                  <Link
+                    to={`/checkout?plan=${tier.id}&annual=${isAnnual}`}
                     className={`w-full py-3 px-4 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
                       isHighlighted
                         ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-md'
@@ -193,15 +193,20 @@ export default function Pricing() {
                         : 'border-2 border-blue-600 text-blue-600 hover:bg-blue-50'
                     }`}
                   >
-                    <span>{tier.ctaText}</span>
+                    <span>Subscribe &amp; Checkout</span>
                     <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
+                  </Link>
 
-                  <div className="text-center mt-2.5">
-                    <span className={`text-[11px] font-mono ${isEnterprise ? 'text-slate-500' : 'text-slate-400'}`}>
-                      14-day zero-risk trial • Instant setup
-                    </span>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleStartTrial(tier)}
+                    className={`w-full py-2 px-3 rounded-lg text-[11px] font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer ${
+                      isEnterprise ? 'text-slate-300 hover:text-white' : 'text-slate-600 hover:text-blue-600'
+                    }`}
+                  >
+                    <span>Or Start 14-Day Free Trial</span>
+                    <Sparkles className="w-3 h-3 text-amber-500" />
+                  </button>
                 </div>
               </div>
             );

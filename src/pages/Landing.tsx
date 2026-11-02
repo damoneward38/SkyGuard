@@ -65,11 +65,11 @@ export default function Landing({ onOpenRadar }: LandingProps) {
             {/* Hero CTAs */}
             <div className="flex flex-wrap items-center gap-3">
               <Link
-                to="/pricing"
+                to="/checkout?plan=pro"
                 className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-5 py-2.5 rounded shadow-md transition-colors inline-flex items-center gap-2"
               >
                 <ShieldCheck className="w-4 h-4" />
-                <span>Start Free Trial</span>
+                <span>Get Started &amp; Checkout</span>
               </Link>
 
               <Link
@@ -78,6 +78,13 @@ export default function Landing({ onOpenRadar }: LandingProps) {
               >
                 <Layers className="w-4 h-4 text-blue-400" />
                 <span>Explore 78 Features</span>
+              </Link>
+
+              <Link
+                to="/pricing"
+                className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 text-sm font-semibold px-4 py-2.5 rounded transition-colors inline-flex items-center gap-1.5"
+              >
+                <span>Pricing Plans</span>
               </Link>
 
               <Link
@@ -262,16 +269,23 @@ export default function Landing({ onOpenRadar }: LandingProps) {
                 </div>
               </div>
 
-              <div className="flex flex-col gap-3 lg:items-end">
+              <div className="flex flex-col sm:flex-row lg:flex-col gap-3 lg:items-end">
+                <Link
+                  to="/checkout?plan=enterprise"
+                  className="w-full sm:w-auto text-center px-6 py-3 rounded font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-colors text-sm shadow-md flex items-center justify-center gap-1.5"
+                >
+                  <span>Activate Sovereign License</span>
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
                 <Link
                   to="/pricing"
-                  className="w-full sm:w-auto text-center px-6 py-3 rounded font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-colors text-sm shadow-md"
+                  className="w-full sm:w-auto text-center px-6 py-3 rounded font-semibold text-slate-300 bg-slate-800 border border-slate-700 hover:bg-slate-700 transition-colors text-sm"
                 >
-                  Start Compliance Audit Trial
+                  View Pricing Plans
                 </Link>
                 <Link
                   to="/white-label"
-                  className="w-full sm:w-auto text-center px-6 py-3 rounded font-semibold text-slate-300 bg-slate-800 border border-slate-700 hover:bg-slate-700 transition-colors text-sm"
+                  className="w-full sm:w-auto text-center px-6 py-3 rounded font-semibold text-blue-400 bg-slate-800 border border-slate-700 hover:bg-slate-700 transition-colors text-sm"
                 >
                   White‑Label Enterprise Solution
                 </Link>

@@ -5,6 +5,7 @@ import Footer from './components/Footer';
 import Landing from './pages/Landing';
 import FeaturePage from './pages/FeaturePage';
 import Pricing from './pages/Pricing';
+import Checkout from './pages/Checkout';
 import WhiteLabel from './pages/WhiteLabel';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
@@ -39,6 +40,7 @@ import IdentityCenter from './pages/IdentityCenter';
 import AutomationCenter from './pages/AutomationCenter';
 import PlatformCenter from './pages/PlatformCenter';
 import OperationsConsole from './pages/OperationsConsole';
+import SecureVault from './pages/SecureVault';
 
 function PublicLayout({ onOpenRadar }: { onOpenRadar: () => void }) {
   return (
@@ -50,11 +52,17 @@ function PublicLayout({ onOpenRadar }: { onOpenRadar: () => void }) {
           <Route path="/features/:page" element={<FeaturePage />} />
           <Route path="/features" element={<Navigate to="/features/1" replace />} />
           <Route path="/pricing" element={<Pricing />} />
+          <Route path="/checkout" element={<Checkout />} />
+          <Route path="/pricing/checkout" element={<Checkout />} />
+          <Route path="/buy" element={<Checkout />} />
           <Route path="/white-label" element={<WhiteLabel />} />
           <Route path="/workspaces" element={<Navigate to="/app/workspaces" replace />} />
           
           {/* Authentication Suite */}
           <Route path="/login" element={<Login />} />
+          <Route path="/signin" element={<Login />} />
+          <Route path="/sign-in" element={<Login />} />
+          <Route path="/auth" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/logout" element={<LogoutPage />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -99,6 +107,7 @@ export default function App() {
               >
                 <Route index element={<Navigate to="/app/dashboard" replace />} />
                 <Route path="dashboard" element={<Dashboard />} />
+                <Route path="vault" element={<SecureVault />} />
                 <Route path="workspaces" element={<Workspaces />} />
                 <Route path="assets" element={<Assets />} />
                 
@@ -137,9 +146,16 @@ export default function App() {
                 
                 {/* Integrations */}
                 <Route path="integrations" element={<Integrations />} />
+                
+                {/* Billing & Subscription Checkout */}
+                <Route path="checkout" element={<Checkout />} />
+                <Route path="billing" element={<Checkout />} />
               </Route>
 
               {/* Dashboard URL Aliases & Deep Links */}
+              <Route path="/vault" element={<Navigate to="/app/vault" replace />} />
+              <Route path="/upload" element={<Navigate to="/app/vault" replace />} />
+              <Route path="/dashboard/vault" element={<Navigate to="/app/vault" replace />} />
               <Route path="/dashboard/workspaces" element={<Navigate to="/app/workspaces" replace />} />
               <Route path="/dashboard/assets" element={<Navigate to="/app/assets" replace />} />
               <Route path="/dashboard/privacy/consent" element={<Navigate to="/app/privacy?tab=consent" replace />} />

@@ -344,7 +344,7 @@ export default function OperationsConsole() {
               <div>
                 <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
                   <Play className="w-5 h-5 text-indigo-600" />
-                  <span>Cross-Center End-to-End Scenario Simulator</span>
+                  <span>Cross-Center End-to-End Scenario Orchestration Engine</span>
                 </h2>
                 <p className="text-xs text-slate-500 mt-0.5">
                   Validates automatic propagation across: <strong>Asset Discovery → Alert Ingestion → SOAR Playbook → Merkle Audit Record</strong>

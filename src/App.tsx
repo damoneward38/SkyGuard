@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import Landing from './pages/Landing';
@@ -47,40 +47,7 @@ function PublicLayout({ onOpenRadar }: { onOpenRadar: () => void }) {
     <div className="flex flex-col min-h-screen bg-slate-50 text-slate-900 selection:bg-blue-500 selection:text-white font-sans">
       <Navbar onOpenRadar={onOpenRadar} />
       <main className="flex-1">
-        <Routes>
-          <Route path="/" element={<Landing onOpenRadar={onOpenRadar} />} />
-          <Route path="/features/:page" element={<FeaturePage />} />
-          <Route path="/features" element={<Navigate to="/features/1" replace />} />
-          <Route path="/pricing" element={<Pricing />} />
-          <Route path="/checkout" element={<Checkout />} />
-          <Route path="/pricing/checkout" element={<Checkout />} />
-          <Route path="/buy" element={<Checkout />} />
-          <Route path="/white-label" element={<WhiteLabel />} />
-          <Route path="/workspaces" element={<Navigate to="/app/workspaces" replace />} />
-          
-          {/* Authentication Suite */}
-          <Route path="/login" element={<Login />} />
-          <Route path="/signin" element={<Login />} />
-          <Route path="/sign-in" element={<Login />} />
-          <Route path="/auth" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
-          <Route path="/logout" element={<LogoutPage />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/verify-email" element={<VerifyEmail />} />
-          <Route path="/mfa" element={<MfaSecurity />} />
-
-          {/* HTTP Error Pages & Diagnostics */}
-          <Route path="/unauthorized" element={<Unauthorized />} />
-          <Route path="/forbidden" element={<Forbidden />} />
-          <Route path="/not-found" element={<NotFound />} />
-          <Route path="/error" element={<ServerError />} />
-          <Route path="/health" element={<HealthStatus />} />
-          <Route path="/api/health" element={<HealthStatus />} />
-          <Route path="/crash-test" element={<CrashTest />} />
-          <Route path="/test-crash" element={<CrashTest />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <Outlet />
       </main>
       <Footer />
     </div>
@@ -96,6 +63,41 @@ export default function App() {
         <WorkspaceProvider>
           <BrowserRouter>
             <Routes>
+              {/* Public Website & Authentication Suite Layout */}
+              <Route element={<PublicLayout onOpenRadar={() => setIsRadarOpen(true)} />}>
+                <Route path="/" element={<Landing onOpenRadar={() => setIsRadarOpen(true)} />} />
+                <Route path="/features/:page" element={<FeaturePage />} />
+                <Route path="/features" element={<Navigate to="/features/1" replace />} />
+                <Route path="/pricing" element={<Pricing />} />
+                <Route path="/checkout" element={<Checkout />} />
+                <Route path="/pricing/checkout" element={<Checkout />} />
+                <Route path="/buy" element={<Checkout />} />
+                <Route path="/white-label" element={<WhiteLabel />} />
+                <Route path="/workspaces" element={<Navigate to="/app/workspaces" replace />} />
+                
+                {/* Authentication Suite */}
+                <Route path="/login" element={<Login />} />
+                <Route path="/signin" element={<Login />} />
+                <Route path="/sign-in" element={<Login />} />
+                <Route path="/auth" element={<Login />} />
+                <Route path="/signup" element={<Signup />} />
+                <Route path="/logout" element={<LogoutPage />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
+                <Route path="/verify-email" element={<VerifyEmail />} />
+                <Route path="/mfa" element={<MfaSecurity />} />
+
+                {/* HTTP Error Pages & Diagnostics */}
+                <Route path="/unauthorized" element={<Unauthorized />} />
+                <Route path="/forbidden" element={<Forbidden />} />
+                <Route path="/not-found" element={<NotFound />} />
+                <Route path="/error" element={<ServerError />} />
+                <Route path="/health" element={<HealthStatus />} />
+                <Route path="/api/health" element={<HealthStatus />} />
+                <Route path="/crash-test" element={<CrashTest />} />
+                <Route path="/test-crash" element={<CrashTest />} />
+              </Route>
+
               {/* Protected SkyGuard Application Console Routes */}
               <Route
                 path="/app"
@@ -111,10 +113,10 @@ export default function App() {
                 <Route path="workspaces" element={<Workspaces />} />
                 <Route path="assets" element={<Assets />} />
                 
-                {/* 1. Security Center - Admin / Owner / Analyst / Viewer */}
+                {/* 1. Security Center */}
                 <Route path="security" element={<SecurityCenter />} />
                 
-                {/* 2. Privacy Center - Privacy Officer / Admin / Owner / Viewer */}
+                {/* 2. Privacy Center */}
                 <Route path="privacy" element={<PrivacyCenter />} />
                 
                 {/* 3. Compliance Center */}
@@ -129,16 +131,16 @@ export default function App() {
                 {/* 6. Platform Center */}
                 <Route path="platform" element={<PlatformCenter />} />
 
-                {/* Operations & Labs: E2E Testing, Load Benchmark, Security Hardening, Runbooks, Monitoring */}
+                {/* Operations & Labs */}
                 <Route path="operations" element={<OperationsConsole />} />
 
-                {/* Alerts & Incidents - Security Analyst / Admin / Owner / Viewer */}
+                {/* Alerts & Incidents */}
                 <Route path="alerts" element={<Alerts />} />
                 
-                {/* Reports - Security Analyst / Admin / Owner / Viewer */}
+                {/* Reports */}
                 <Route path="reports" element={<Reports />} />
                 
-                {/* Active Sessions - Zero-Trust Device Management */}
+                {/* Active Sessions */}
                 <Route path="sessions" element={<SessionsPage />} />
                 
                 {/* MFA Settings */}
@@ -147,9 +149,10 @@ export default function App() {
                 {/* Integrations */}
                 <Route path="integrations" element={<Integrations />} />
                 
-                {/* Billing & Subscription Checkout */}
+                {/* Direct Console Checkout */}
                 <Route path="checkout" element={<Checkout />} />
                 <Route path="billing" element={<Checkout />} />
+                <Route path="login" element={<Navigate to="/login" replace />} />
               </Route>
 
               {/* Dashboard URL Aliases & Deep Links */}
@@ -171,11 +174,11 @@ export default function App() {
               <Route path="/dashboard/sessions" element={<Navigate to="/app/sessions" replace />} />
               <Route path="/dashboard" element={<Navigate to="/app/dashboard" replace />} />
 
-              {/* Public Website & Authentication Routes */}
-              <Route path="/*" element={<PublicLayout onOpenRadar={() => setIsRadarOpen(true)} />} />
+              {/* Catch-all 404 Route */}
+              <Route path="*" element={<Navigate to="/not-found" replace />} />
             </Routes>
 
-            {/* Global Radar Simulator */}
+            {/* Global Defense Telemetry Radar */}
             <LiveRadarSimulator
               isOpen={isRadarOpen}
               onClose={() => setIsRadarOpen(false)}

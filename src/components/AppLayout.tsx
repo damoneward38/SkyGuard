@@ -19,7 +19,8 @@ import {
   Sparkles,
   Server,
   Layers,
-  Upload
+  Upload,
+  CreditCard
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import LiveRadarSimulator from './LiveRadarSimulator';
@@ -35,6 +36,7 @@ export default function AppLayout() {
 
   const navItems = [
     { label: 'Dashboard', path: '/app/dashboard', icon: LayoutDashboard, badge: 'Live' },
+    { label: 'Checkout & Licensing', path: '/app/checkout', icon: CreditCard, badge: 'Plans', badgeColor: 'bg-emerald-100 text-emerald-700' },
     { label: 'Secure Vault & Ingestion', path: '/app/vault', icon: Upload, badge: 'Protected', badgeColor: 'bg-emerald-100 text-emerald-700' },
     { label: 'Workspaces Topology', path: '/app/workspaces', icon: Layers, badge: 'Enclaves', badgeColor: 'bg-indigo-100 text-indigo-700' },
     { label: '1. Security Center', path: '/app/security', icon: Shield, badge: 'WAF/ZT' },

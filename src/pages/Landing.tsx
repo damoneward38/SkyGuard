@@ -73,11 +73,10 @@ export default function Landing({ onOpenRadar }: LandingProps) {
               </Link>
 
               <Link
-                to="/features/1"
-                className="bg-slate-700 hover:bg-slate-600 text-white border border-slate-600 text-sm font-semibold px-5 py-2.5 rounded transition-colors inline-flex items-center gap-2"
+                to="/login"
+                className="bg-slate-700 hover:bg-slate-600 text-white border border-slate-600 text-sm font-semibold px-4 py-2.5 rounded transition-colors inline-flex items-center gap-1.5"
               >
-                <Layers className="w-4 h-4 text-blue-400" />
-                <span>Explore 78 Features</span>
+                <span>Sign In to Console</span>
               </Link>
 
               <Link
@@ -88,11 +87,11 @@ export default function Landing({ onOpenRadar }: LandingProps) {
               </Link>
 
               <Link
-                to="/white-label"
-                className="text-blue-300 hover:text-white text-sm font-semibold px-4 py-2.5 rounded border border-slate-600 hover:bg-slate-700/50 transition-colors inline-flex items-center gap-1.5"
+                to="/features/1"
+                className="text-slate-300 hover:text-white border border-slate-600 hover:bg-slate-700/50 text-sm font-semibold px-4 py-2.5 rounded transition-colors inline-flex items-center gap-1.5"
               >
-                <Sparkles className="w-3.5 h-3.5 text-blue-400" />
-                <span>White‑Label Offer</span>
+                <Layers className="w-3.5 h-3.5 text-blue-400" />
+                <span>Explore 78 Features</span>
               </Link>
             </div>
           </div>
@@ -133,7 +132,7 @@ export default function Landing({ onOpenRadar }: LandingProps) {
                 className="w-full py-2 bg-slate-800 hover:bg-slate-900 border border-slate-600 text-blue-400 hover:text-blue-300 text-xs font-semibold rounded flex items-center justify-center gap-2 cursor-pointer transition-colors"
               >
                 <Activity className="w-3.5 h-3.5" />
-                <span>Launch Live Radar Simulator</span>
+                <span>Launch Live Threat Defense Radar</span>
               </button>
             )}
           </div>

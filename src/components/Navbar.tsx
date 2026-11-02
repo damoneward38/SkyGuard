@@ -26,7 +26,7 @@ export default function Navbar({ onOpenRadar }: NavbarProps) {
   const [featuresDropdownOpen, setFeaturesDropdownOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, logout } = useAuth();
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-slate-800 bg-slate-900 text-white shadow-lg">
@@ -43,6 +43,24 @@ export default function Navbar({ onOpenRadar }: NavbarProps) {
           </span>
         </div>
         <div className="flex items-center gap-3">
+          {isAuthenticated ? (
+            <div className="hidden sm:flex items-center gap-2 text-[11px]">
+              <span className="text-slate-400">Signed in: <strong className="text-white">{user?.email}</strong></span>
+              <span className="text-slate-600">•</span>
+              <Link to="/login" className="text-blue-400 hover:text-blue-300 font-semibold">Switch</Link>
+              <span className="text-slate-600">•</span>
+              <button onClick={logout} className="text-rose-400 hover:text-rose-300 cursor-pointer font-semibold">Sign Out</button>
+            </div>
+          ) : (
+            <div className="hidden sm:flex items-center gap-2 text-[11px]">
+              <Link to="/login" className="text-blue-300 hover:text-white font-bold bg-blue-900/60 border border-blue-700/60 px-2 py-0.5 rounded">
+                ⚡ Sign In
+              </Link>
+              <Link to="/checkout" className="text-emerald-400 hover:text-emerald-300 font-bold hover:underline">
+                Full Checkout →
+              </Link>
+            </div>
+          )}
           {onOpenRadar && (
             <button
               onClick={onOpenRadar}
@@ -195,42 +213,55 @@ export default function Navbar({ onOpenRadar }: NavbarProps) {
           </div>
 
           {/* Desktop Right CTAs */}
-          <div className="hidden md:flex items-center gap-3">
+          <div className="hidden md:flex items-center gap-2.5">
             {isAuthenticated ? (
               <div className="flex items-center gap-2">
                 <Link
                   to="/checkout"
-                  className="text-xs font-semibold px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors"
+                  className="text-xs font-semibold px-3 py-2 rounded bg-emerald-700/80 hover:bg-emerald-600 text-white border border-emerald-500/50 transition-colors shadow-sm"
                 >
-                  Manage Plan
+                  🛒 Full Checkout
+                </Link>
+                <Link
+                  to="/login"
+                  className="text-xs font-semibold px-3 py-2 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors"
+                >
+                  Sign In / Switch
                 </Link>
                 <Link
                   to="/app/dashboard"
-                  className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded shadow-md transition-colors inline-flex items-center gap-2 font-mono"
+                  className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3.5 py-2 rounded shadow-md transition-colors inline-flex items-center gap-1.5 font-mono"
                 >
                   <LayoutDashboard className="w-3.5 h-3.5" />
                   <span>Console ({user?.role?.replace('_', ' ')})</span>
                 </Link>
+                <button
+                  onClick={logout}
+                  className="text-xs text-rose-400 hover:text-rose-300 px-2 py-1.5 cursor-pointer font-semibold"
+                >
+                  Sign Out
+                </button>
               </div>
             ) : (
               <>
                 <Link
                   to="/login"
-                  className="text-sm font-semibold text-slate-300 hover:text-white transition-colors"
+                  className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-4 py-2 rounded shadow-md transition-colors inline-flex items-center gap-1.5"
                 >
-                  Sign In
+                  <User className="w-3.5 h-3.5" />
+                  <span>Sign In</span>
                 </Link>
                 <Link
-                  to="/checkout"
-                  className="bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold px-3 py-2 rounded border border-slate-700 transition-colors"
+                  to="/checkout?plan=pro"
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-4 py-2 rounded shadow-md transition-colors inline-flex items-center gap-1.5"
                 >
-                  Buy License
+                  <span>🛒 Full Checkout</span>
                 </Link>
                 <Link
-                  to="/signup"
-                  className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3.5 py-2 rounded shadow-md transition-colors inline-flex items-center justify-center"
+                  to="/pricing"
+                  className="text-xs font-semibold text-slate-300 hover:text-white px-2 py-2 transition-colors"
                 >
-                  Start Free Trial
+                  Pricing
                 </Link>
               </>
             )}
@@ -240,7 +271,7 @@ export default function Navbar({ onOpenRadar }: NavbarProps) {
           <div className="flex md:hidden items-center gap-2">
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:text-white"
+              className="p-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:text-white cursor-pointer"
               aria-label="Toggle Navigation Menu"
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -260,6 +291,24 @@ export default function Navbar({ onOpenRadar }: NavbarProps) {
             Overview
           </Link>
           
+          <div className="grid grid-cols-2 gap-2 pt-1 pb-2">
+            <Link
+              to="/login"
+              onClick={() => setMobileMenuOpen(false)}
+              className="px-3 py-2.5 rounded-lg text-center bg-blue-600 text-white font-bold text-sm shadow flex items-center justify-center gap-1.5"
+            >
+              <User className="w-4 h-4" />
+              <span>Sign In</span>
+            </Link>
+            <Link
+              to="/checkout"
+              onClick={() => setMobileMenuOpen(false)}
+              className="px-3 py-2.5 rounded-lg text-center bg-emerald-600 text-white font-bold text-sm shadow flex items-center justify-center gap-1.5"
+            >
+              <span>🛒 Full Checkout</span>
+            </Link>
+          </div>
+
           <div className="border-t border-slate-800 pt-2">
             <div className="px-3 py-1 text-xs font-semibold uppercase text-slate-400 tracking-wider">
               Feature Sets (1–78)
@@ -289,9 +338,9 @@ export default function Navbar({ onOpenRadar }: NavbarProps) {
           <Link
             to="/checkout"
             onClick={() => setMobileMenuOpen(false)}
-            className="block px-3 py-2 rounded-md text-base font-medium text-slate-200 hover:bg-slate-800"
+            className="block px-3 py-2 rounded-md text-base font-medium text-emerald-400 hover:bg-slate-800 font-bold"
           >
-            Enterprise Checkout
+            Full Enterprise Checkout Page →
           </Link>
 
           <Link
@@ -302,44 +351,31 @@ export default function Navbar({ onOpenRadar }: NavbarProps) {
             White‑Label Enterprise ($3M–$25M)
           </Link>
 
-          {isAuthenticated && (
-            <Link
-              to="/app/dashboard"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block px-3 py-2 rounded-md text-base font-medium text-green-400 hover:bg-slate-800 font-mono"
-            >
-              Go to SkyGuard Console →
-            </Link>
-          )}
-
-          <div className="pt-2 flex flex-col gap-2">
-            {isAuthenticated ? (
+          {isAuthenticated ? (
+            <div className="pt-2 border-t border-slate-800 flex flex-col gap-2">
               <Link
                 to="/app/dashboard"
                 onClick={() => setMobileMenuOpen(false)}
-                className="w-full text-center py-2.5 rounded-md text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-md font-mono"
+                className="block px-3 py-2.5 rounded-md text-base font-medium text-center bg-blue-700 text-white font-mono"
               >
-                Launch Console ({user?.name})
+                Launch Console ({user?.role}) →
               </Link>
-            ) : (
-              <>
-                <Link
-                  to="/login"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="w-full text-center py-2.5 rounded-md text-sm font-semibold bg-slate-800 text-white hover:bg-slate-700"
-                >
-                  Log In
-                </Link>
-                <Link
-                  to="/signup"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="w-full text-center py-2.5 rounded-md text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-md"
-                >
-                  Start Free Trial
-                </Link>
-              </>
-            )}
-          </div>
+              <button
+                onClick={() => { logout(); setMobileMenuOpen(false); }}
+                className="w-full px-3 py-2 rounded-md text-xs text-center text-rose-400 hover:bg-slate-800 font-semibold cursor-pointer"
+              >
+                Sign Out
+              </button>
+            </div>
+          ) : (
+            <Link
+              to="/login"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block px-3 py-2.5 rounded-md text-sm font-semibold text-center bg-slate-800 text-slate-200 hover:bg-slate-700"
+            >
+              Sign In to Existing Tenant →
+            </Link>
+          )}
         </div>
       )}
     </header>

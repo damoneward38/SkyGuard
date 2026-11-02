@@ -27,7 +27,10 @@ export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const from = (location.state as any)?.from?.pathname || '/app/dashboard';
+  const rawFrom = (location.state as any)?.from?.pathname;
+  const targetPath = (rawFrom && !rawFrom.includes('/login') && !rawFrom.includes('/signin') && !rawFrom.includes('/sign-in')) 
+    ? rawFrom 
+    : '/app/dashboard';
 
   const [email, setEmail] = useState('chief.security@skyguard.mesh');
   const [password, setPassword] = useState('SkyGuard-Enclave-Pass2026!');
@@ -51,22 +54,11 @@ export default function Login() {
     setIsSubmitting(true);
 
     try {
-      // Dispatch to full-stack server auth endpoint
-      try {
-        await fetch('/api/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password, role: selectedRole }),
-        });
-      } catch {
-        // Fallback to client state gracefully
-      }
-
       await login(email, password, selectedRole);
       setAuthSuccessMessage('Identity verified. Redirecting to SkyGuard Enclave Console...');
       setTimeout(() => {
-        navigate(from, { replace: true });
-      }, 500);
+        navigate(targetPath, { replace: true });
+      }, 300);
     } catch (err: any) {
       setAuthError(err.message || 'Authentication failed. Please verify credentials.');
       setIsSubmitting(false);
@@ -81,21 +73,11 @@ export default function Login() {
     setIsSubmitting(true);
 
     try {
-      try {
-        await fetch('/api/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: demoEmail, password: 'demo', role }),
-        });
-      } catch {
-        // Fallback to client state gracefully
-      }
-
       await login(demoEmail, 'SkyGuard-Sovereign-2026!', role);
       setAuthSuccessMessage(`Authorized as ${role.toUpperCase()}. Launching Console...`);
       setTimeout(() => {
-        navigate(from, { replace: true });
-      }, 400);
+        navigate(targetPath, { replace: true });
+      }, 300);
     } catch {
       setIsSubmitting(false);
     }
@@ -116,22 +98,11 @@ export default function Login() {
     setEmail(ssoEmail);
 
     try {
-      await new Promise((res) => setTimeout(res, 600));
-      try {
-        await fetch('/api/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: ssoEmail, role: selectedRole, provider }),
-        });
-      } catch {
-        // Graceful fallback
-      }
-
       await login(ssoEmail, 'sso-federated-token', selectedRole);
       setAuthSuccessMessage(`SAML SSO handshake validated via ${provider.toUpperCase()}. Launching Console...`);
       setTimeout(() => {
-        navigate(from, { replace: true });
-      }, 400);
+        navigate(targetPath, { replace: true });
+      }, 300);
     } finally {
       setIsSubmitting(false);
       setSsoProvider(null);
@@ -167,6 +138,48 @@ export default function Login() {
             <span className="font-medium">{authError}</span>
           </div>
         )}
+
+        {/* Top Checkout CTA Banner */}
+        <div className="bg-gradient-to-r from-slate-900 to-blue-950 text-white p-3.5 rounded-xl border border-blue-900/60 shadow-md flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2.5">
+            <Sparkles className="w-4 h-4 text-amber-400 flex-shrink-0" />
+            <div>
+              <span className="font-bold text-white block">Need to purchase or activate a license?</span>
+              <span className="text-[11px] text-slate-300">Starter, Growth, Sovereign Enterprise &amp; White-Label</span>
+            </div>
+          </div>
+          <Link
+            to="/checkout?plan=pro"
+            className="w-full sm:w-auto bg-blue-600 hover:bg-blue-500 text-white font-bold px-3.5 py-2 rounded-lg text-xs transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap shadow-sm cursor-pointer"
+          >
+            <span>Take Me Straight to Checkout</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+
+        {/* 1-Click Instant Evaluation Login */}
+        <div className="bg-white p-4 rounded-xl border-2 border-blue-500/40 shadow-md flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider font-mono">
+                1-Click Root Evaluation:
+              </h3>
+            </div>
+            <p className="text-xs text-slate-600 mt-0.5">
+              Launch SkyGuard Sovereign Enclave Console instantly with pre-verified root credentials.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => handleQuickDemo('owner', 'chief.security@skyguard.mesh')}
+            disabled={isSubmitting}
+            className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2 rounded-lg text-xs shadow-md transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer"
+          >
+            <span>⚡ Instant Sign In as Root Owner</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
 
         {/* 1-Click RBAC Persona Switcher for Instant Evaluation */}
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-2.5">

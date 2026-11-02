@@ -69,7 +69,7 @@ export default function ServerError() {
 
         <div className="pt-2 border-t border-slate-100 text-center">
           <Link to="/test-crash" className="text-[11px] font-mono text-slate-400 hover:text-rose-600 transition-colors">
-            Test JavaScript &lt;ErrorBoundary&gt; Crash Simulation →
+            Test JavaScript &lt;ErrorBoundary&gt; Fault-Injection &amp; Diagnostic Engine →
           </Link>
         </div>
       </div>

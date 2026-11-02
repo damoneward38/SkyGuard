@@ -72,15 +72,18 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<UserProfile | null>(() => {
-    const saved = localStorage.getItem('skyguard_auth_user');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch {
-        return DEFAULT_DEMO_USER;
+    try {
+      if (typeof window !== 'undefined' && sessionStorage.getItem('skyguard_logged_out') === 'true') {
+        return null;
       }
+      const saved = typeof window !== 'undefined' ? localStorage.getItem('skyguard_auth_user') : null;
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch {
+      return null;
     }
-    return DEFAULT_DEMO_USER;
+    return null;
   });
   const [sessions, setSessions] = useState<UserSession[]>(INITIAL_SESSIONS);
   const [isLoading, setIsLoading] = useState(false);
@@ -88,6 +91,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     if (user) {
       localStorage.setItem('skyguard_auth_user', JSON.stringify(user));
+      sessionStorage.removeItem('skyguard_logged_out');
     } else {
       localStorage.removeItem('skyguard_auth_user');
     }
@@ -95,6 +99,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, _password?: string, role: UserRole = 'owner'): Promise<boolean> => {
     setIsLoading(true);
+    sessionStorage.removeItem('skyguard_logged_out');
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
@@ -166,6 +171,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = () => {
     fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
     localStorage.removeItem('skyguard_auth_token');
+    localStorage.removeItem('skyguard_auth_user');
+    sessionStorage.setItem('skyguard_logged_out', 'true');
     setUser(null);
   };
 

@@ -22,7 +22,7 @@ export default function CrashTest() {
             Diagnostic Test Harness
           </span>
           <h1 className="text-xl font-extrabold text-slate-900 mt-2 mb-1">
-            ErrorBoundary Crash Simulator
+            ErrorBoundary Resilience &amp; Fault-Injection Engine
           </h1>
           <p className="text-xs text-slate-600 leading-relaxed font-sans">
             Test the unhandled JavaScript crash lifecycle: Error Boundary capture, unique Error ID generation, SOC telemetry logging, and quarantine recovery.

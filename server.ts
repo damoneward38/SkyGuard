@@ -5,10 +5,71 @@ import { performance } from 'perf_hooks';
 import { createServer as createViteServer } from 'vite';
 
 const app = express();
-const PORT = 3000;
+const PORT = Number(process.env.PORT || 3000);
 
 app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ extended: true, limit: '25mb' }));
+
+// Server-owned sessions; the browser cannot choose a role or create an identity.
+const skyGuardSessions = new Map<string, { user: any; expiresAt: number }>();
+const SKYGUARD_SESSION_TTL_MS = 8 * 60 * 60 * 1000;
+function verifySkyGuardPassword(password: unknown): boolean {
+  const encoded = process.env.SKYGUARD_ADMIN_PASSWORD_HASH || '';
+  if (typeof password !== 'string' || !password || !encoded.startsWith('scrypt$')) return false;
+  const parts = encoded.split('$');
+  if (parts.length !== 3 || !parts[1] || !/^[a-f0-9]{128}$/i.test(parts[2])) return false;
+  try {
+    const actual = crypto.scryptSync(password, parts[1], 64);
+    const expected = Buffer.from(parts[2], 'hex');
+    return expected.length === actual.length && crypto.timingSafeEqual(actual, expected);
+  } catch { return false; }
+}
+
+app.use('/api', (req: Request, res: Response, next) => {
+  if (req.path === '/health' || req.path === '/auth/login' || req.path === '/auth/session' || req.path === '/auth/logout' || req.path === '/docs/quickstart') return next();
+  const header = req.headers.authorization || '';
+  const token = header.startsWith('Bearer ') ? header.slice(7) : '';
+  const session = token ? skyGuardSessions.get(token) : undefined;
+  if (!session || session.expiresAt <= Date.now()) {
+    if (token) skyGuardSessions.delete(token);
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+  (req as any).authUser = session.user;
+  return next();
+});
+
+app.get('/api/auth/session', (req: Request, res: Response) => {
+  const header = req.headers.authorization || '';
+  const token = header.startsWith('Bearer ') ? header.slice(7) : '';
+  const session = token ? skyGuardSessions.get(token) : undefined;
+  if (!session || session.expiresAt <= Date.now()) {
+    if (token) skyGuardSessions.delete(token);
+    return res.status(401).json({ authenticated: false, user: null });
+  }
+  return res.json({ authenticated: true, user: session.user });
+});
+
+app.post('/api/auth/login', (req: Request, res: Response) => {
+  const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+  const configuredEmail = (process.env.SKYGUARD_ADMIN_EMAIL || '').trim().toLowerCase();
+  if (!configuredEmail || !(process.env.SKYGUARD_ADMIN_PASSWORD_HASH || '').startsWith('scrypt$')) {
+    return res.status(503).json({ success: false, error: 'Secure administrator credentials are not configured' });
+  }
+  if (!email || email !== configuredEmail || !verifySkyGuardPassword(req.body?.password)) {
+    return res.status(401).json({ success: false, error: 'Invalid email or password' });
+  }
+  const token = crypto.randomBytes(32).toString('hex');
+  const user = { id: 'skyguard-configured-admin', name: email.split('@')[0], email, role: 'owner', tenantId: 'skyguard-admin', tenantName: 'SkyGuard', plan: 'enterprise', mfaEnabled: false, emailVerified: true, lastLogin: new Date().toISOString(), activeSessions: [] };
+  skyGuardSessions.set(token, { user, expiresAt: Date.now() + SKYGUARD_SESSION_TTL_MS });
+  return res.json({ success: true, token, user, expiresAt: new Date(Date.now() + SKYGUARD_SESSION_TTL_MS).toISOString() });
+});
+
+app.post('/api/auth/logout', (req: Request, res: Response) => {
+  const header = req.headers.authorization || '';
+  const token = header.startsWith('Bearer ') ? header.slice(7) : '';
+  if (token) skyGuardSessions.delete(token);
+  return res.json({ success: true });
+});
 
 // In-Memory Sovereign Store for telemetry & events
 interface SkyGuardEventRecord {

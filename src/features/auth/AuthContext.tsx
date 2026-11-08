@@ -21,214 +21,65 @@ interface AuthContextType {
   canPerformWriteAction: () => boolean;
 }
 
-const INITIAL_SESSIONS: UserSession[] = [
-  {
-    id: 'ses_curr_99182',
-    device: 'Apple MacBook Pro (M3 Max / ARM64)',
-    browser: 'Chrome 128.0.6613.85 (Zero-Trust Enclave)',
-    ipAddress: '194.26.29.110 (Frankfurt DC-01, DE)',
-    location: 'Frankfurt, Germany',
-    lastActive: 'Just now (Active Session)',
-    isCurrent: true,
-    trustedStatus: 'Hardware Enclave',
-  },
-  {
-    id: 'ses_mob_44102',
-    device: 'Apple iPhone 15 Pro (iOS 18.0)',
-    browser: 'SkyGuard Mobile SecEnclave v4.2',
-    ipAddress: '82.112.44.89 (Rome, IT)',
-    location: 'Rome, Italy',
-    lastActive: '24 minutes ago',
-    isCurrent: false,
-    trustedStatus: 'WebAuthn Bound',
-  },
-  {
-    id: 'ses_desk_11209',
-    device: 'Dell Precision Tower (Ubuntu 24.04 LTS)',
-    browser: 'Firefox Developer Edition 129.0',
-    ipAddress: '212.58.244.70 (London, UK)',
-    location: 'London, United Kingdom',
-    lastActive: '3 hours ago',
-    isCurrent: false,
-    trustedStatus: 'Hardware Enclave',
-  }
-];
-
-const DEFAULT_DEMO_USER: UserProfile = {
-  id: 'usr_sec_99182',
-  name: 'Noam Almagor',
-  email: 'chief.security@skyguard.mesh',
-  role: 'owner',
-  tenantId: 'tnt_sovereign_enclave_01',
-  tenantName: 'SkyGuard Defense HQ',
-  plan: 'enterprise',
-  mfaEnabled: true,
-  emailVerified: true,
-  lastLogin: '2026-08-20T05:45:00Z',
-  activeSessions: INITIAL_SESSIONS
-};
-
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<UserProfile | null>(() => {
-    try {
-      if (typeof window !== 'undefined' && sessionStorage.getItem('skyguard_logged_out') === 'true') {
-        return null;
-      }
-      const saved = typeof window !== 'undefined' ? localStorage.getItem('skyguard_auth_user') : null;
-      if (saved) {
-        return JSON.parse(saved);
-      }
-    } catch {
-      return null;
-    }
-    return null;
-  });
-  const [sessions, setSessions] = useState<UserSession[]>(INITIAL_SESSIONS);
-  const [isLoading, setIsLoading] = useState(false);
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const [sessions, setSessions] = useState<UserSession[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (user) {
-      localStorage.setItem('skyguard_auth_user', JSON.stringify(user));
-      sessionStorage.removeItem('skyguard_logged_out');
-    } else {
-      localStorage.removeItem('skyguard_auth_user');
-    }
-  }, [user]);
+    let cancelled = false;
+    const restoreSession = async () => {
+      const token = sessionStorage.getItem('skyguard_auth_token');
+      if (!token) { if (!cancelled) { setUser(null); setIsLoading(false); } return; }
+      try {
+        const res = await fetch('/api/auth/session', { headers: { Authorization: `Bearer ${token}` } });
+        if (!res.ok) throw new Error('Session expired');
+        const data = await res.json();
+        if (!cancelled && data.authenticated && data.user) setUser(data.user as UserProfile);
+        else if (!cancelled) { sessionStorage.removeItem('skyguard_auth_token'); setUser(null); }
+      } catch {
+        if (!cancelled) { sessionStorage.removeItem('skyguard_auth_token'); setUser(null); }
+      } finally { if (!cancelled) setIsLoading(false); }
+    };
+    void restoreSession();
+    return () => { cancelled = true; };
+  }, []);
 
-  const login = async (email: string, _password?: string, role: UserRole = 'owner'): Promise<boolean> => {
+  const login = async (email: string, password?: string, _role?: UserRole): Promise<boolean> => {
     setIsLoading(true);
-    sessionStorage.removeItem('skyguard_logged_out');
     try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password: _password, role }),
-      });
+      const res = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
+      if (!res.ok) { setUser(null); sessionStorage.removeItem('skyguard_auth_token'); return false; }
       const data = await res.json();
-      if (data.success && data.user) {
-        if (data.token) {
-          localStorage.setItem('skyguard_auth_token', data.token);
-        }
-        setUser(data.user);
-        setSessions(INITIAL_SESSIONS);
-        setIsLoading(false);
-        return true;
-      }
-    } catch (err) {
-      console.warn('Backend login endpoint unreachable, falling back to local enclave credentials:', err);
-    }
-    
-    const newUser: UserProfile = {
-      id: `usr_${Math.floor(Math.random() * 89999 + 10000)}`,
-      name: email.split('@')[0].replace('.', ' ').replace(/^./, (s) => s.toUpperCase()),
-      email: email,
-      role: role,
-      tenantId: 'tnt_sec_live_sandbox',
-      tenantName: 'Global Cyber Operations',
-      plan: 'enterprise',
-      mfaEnabled: true,
-      emailVerified: true,
-      lastLogin: new Date().toISOString(),
-      activeSessions: INITIAL_SESSIONS
-    };
-    setUser(newUser);
-    setSessions(INITIAL_SESSIONS);
-    setIsLoading(false);
-    return true;
+      if (!data.success || !data.user || !data.token) { setUser(null); return false; }
+      sessionStorage.setItem('skyguard_auth_token', data.token);
+      setUser(data.user as UserProfile);
+      setSessions([]);
+      return true;
+    } catch { setUser(null); sessionStorage.removeItem('skyguard_auth_token'); return false; }
+    finally { setIsLoading(false); }
   };
 
-  const signup = async (data: {
-    name: string;
-    email: string;
-    company: string;
-    plan?: 'basic' | 'pro' | 'enterprise' | 'whitelabel';
-    role?: UserRole;
-  }): Promise<boolean> => {
-    setIsLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 700));
-
-    const newUser: UserProfile = {
-      id: `usr_${Math.floor(Math.random() * 89999 + 10000)}`,
-      name: data.name,
-      email: data.email,
-      role: data.role || 'owner',
-      tenantId: `tnt_${data.company.toLowerCase().replace(/[^a-z0-9]/g, '_')}_${Math.floor(Math.random() * 900 + 100)}`,
-      tenantName: data.company,
-      plan: data.plan || 'pro',
-      mfaEnabled: true,
-      emailVerified: false,
-      lastLogin: new Date().toISOString(),
-      activeSessions: INITIAL_SESSIONS
-    };
-    setUser(newUser);
-    setSessions(INITIAL_SESSIONS);
-    setIsLoading(false);
-    return true;
-  };
+  const signup = async (_data: { name: string; email: string; company: string; plan?: 'basic' | 'pro' | 'enterprise' | 'whitelabel'; role?: UserRole }): Promise<boolean> => false;
 
   const logout = () => {
-    fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
-    localStorage.removeItem('skyguard_auth_token');
-    localStorage.removeItem('skyguard_auth_user');
-    sessionStorage.setItem('skyguard_logged_out', 'true');
-    setUser(null);
+    const token = sessionStorage.getItem('skyguard_auth_token');
+    if (token) void fetch('/api/auth/logout', { method: 'POST', headers: { Authorization: `Bearer ${token}` } }).catch(() => {});
+    sessionStorage.removeItem('skyguard_auth_token');
+    setUser(null); setSessions([]);
   };
 
-  const switchRole = (role: UserRole) => {
-    if (user) {
-      setUser({ ...user, role });
-    }
-  };
-
-  const updatePlan = (plan: 'basic' | 'pro' | 'enterprise' | 'whitelabel') => {
-    if (user) {
-      setUser({ ...user, plan });
-    }
-  };
-
-  const verifyEmail = async (_code: string): Promise<boolean> => {
-    setIsLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 600));
-    if (user) {
-      setUser({ ...user, emailVerified: true });
-    }
-    setIsLoading(false);
-    return true;
-  };
-
-  const requestPasswordReset = async (_email: string): Promise<boolean> => {
-    setIsLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 600));
-    setIsLoading(false);
-    return true;
-  };
-
-  const completePasswordReset = async (_token: string, _newPassword: string): Promise<boolean> => {
-    setIsLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 700));
-    setIsLoading(false);
-    return true;
-  };
-
-  const toggleMfa = async (enabled: boolean): Promise<boolean> => {
-    setIsLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    if (user) {
-      setUser({ ...user, mfaEnabled: enabled });
-    }
-    setIsLoading(false);
-    return true;
-  };
-
-  const revokeSession = (sessionId: string) => {
-    setSessions((prev) => prev.filter((s) => s.id !== sessionId));
-  };
-
-  const terminateOtherSessions = () => {
-    setSessions((prev) => prev.filter((s) => s.isCurrent));
-  };
+  // Roles and plans are server-owned. Browser-side role switching and plan edits are disabled.
+  const switchRole = (_role: UserRole) => {};
+  const updatePlan = (_plan: 'basic' | 'pro' | 'enterprise' | 'whitelabel') => {};
+  const verifyEmail = async (_code: string): Promise<boolean> => false;
+  const requestPasswordReset = async (_email: string): Promise<boolean> => false;
+  const completePasswordReset = async (_token: string, _newPassword: string): Promise<boolean> => false;
+  const toggleMfa = async (_enabled: boolean): Promise<boolean> => false;
+  const revokeSession = (_sessionId: string) => {};
+  const terminateOtherSessions = () => {};
 
   // RBAC Permission Engine
   // OWNER: Full access

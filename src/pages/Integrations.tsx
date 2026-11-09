@@ -13,11 +13,13 @@ import {
   ExternalLink,
   Sparkles
 } from 'lucide-react';
-import { initialIntegrations } from '../services/mockSecurityApi';
+import { useSecurityData } from '../features/security/SecurityDataContext';
 import { IntegrationConnector } from '../types';
 
 export default function Integrations() {
-  const [connectors, setConnectors] = useState<IntegrationConnector[]>(initialIntegrations);
+  const { state, updateCollection } = useSecurityData();
+  const connectors = state.integrations;
+  const setConnectors = (updater: IntegrationConnector[] | ((previous: IntegrationConnector[]) => IntegrationConnector[])) => updateCollection('integrations', updater);
   const [syncingId, setSyncingId] = useState<string | null>(null);
   const [isAddingWebhook, setIsAddingWebhook] = useState(false);
   const [webhookUrl, setWebhookUrl] = useState('');

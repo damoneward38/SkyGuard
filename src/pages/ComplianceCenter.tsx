@@ -10,12 +10,14 @@ import {
   ExternalLink,
   Sparkles
 } from 'lucide-react';
-import { initialFrameworks } from '../services/mockSecurityApi';
+import { useSecurityData } from '../features/security/SecurityDataContext';
 import { ComplianceFramework } from '../types';
 
 export default function ComplianceCenter() {
-  const [frameworks, setFrameworks] = useState<ComplianceFramework[]>(initialFrameworks);
-  const [selectedFramework, setSelectedFramework] = useState<ComplianceFramework>(initialFrameworks[0]);
+  const { state, updateCollection } = useSecurityData();
+  const frameworks = state.complianceFrameworks;
+  const [selectedFrameworkId, setSelectedFrameworkId] = useState<string | null>(frameworks[0]?.id || null);
+  const selectedFramework = frameworks.find((framework) => framework.id === selectedFrameworkId) || frameworks[0];
   const [searchQuery, setSearchQuery] = useState('');
   const [evidenceDownloaded, setEvidenceDownloaded] = useState(false);
 
@@ -81,7 +83,7 @@ export default function ComplianceCenter() {
           return (
             <button
               key={fw.id}
-              onClick={() => setSelectedFramework(fw)}
+              onClick={() => setSelectedFrameworkId(fw.id)}
               className={`p-5 rounded-2xl border text-left transition-all cursor-pointer shadow-sm ${
                 isSelected
                   ? 'bg-blue-50/50 border-blue-500 ring-1 ring-blue-500'

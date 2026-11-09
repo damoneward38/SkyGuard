@@ -1,8 +1,23 @@
 import express, { Request, Response } from 'express';
 import path from 'path';
+import fs from 'fs';
 import crypto from 'crypto';
 import { performance } from 'perf_hooks';
 import { createServer as createViteServer } from 'vite';
+import {
+  initialSecurityFindings,
+  initialProtectedAssets,
+  initialWafRules,
+  initialZeroTrustPolicies,
+  initialDsarRequests,
+  initialConsentRecords,
+  initialFrameworks,
+  initialAlerts,
+  initialIntegrations,
+  initialInventoryAssets,
+  initialEnclaveActivityEvents,
+  mockSecurityEvents,
+} from './src/services/mockSecurityApi';
 
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
@@ -70,6 +85,151 @@ app.post('/api/auth/logout', (req: Request, res: Response) => {
   if (token) skyGuardSessions.delete(token);
   return res.json({ success: true });
 });
+
+// ==========================================
+// SECURITY STATE API
+// ==========================================
+app.get('/api/security/state', (_req: Request, res: Response) => {
+  return res.json({ success: true, state: securityState });
+});
+
+app.get('/api/security/:collection', (req: Request, res: Response) => {
+  const { collection } = req.params;
+  if (!isSecurityCollection(collection)) {
+    return res.status(404).json({ success: false, error: 'Unknown security collection' });
+  }
+  return res.json({ success: true, collection, items: securityState[collection] });
+});
+
+app.post('/api/security/:collection', (req: Request, res: Response) => {
+  const { collection } = req.params;
+  if (!isSecurityCollection(collection)) {
+    return res.status(404).json({ success: false, error: 'Unknown security collection' });
+  }
+  const item = req.body?.item ?? req.body;
+  if (!item || typeof item !== 'object' || Array.isArray(item)) {
+    return res.status(400).json({ success: false, error: 'A single object is required' });
+  }
+  const record = { id: item.id || `${collection}_${Date.now()}_${crypto.randomBytes(2).toString('hex')}`, ...item };
+  (securityState[collection] as any[]).unshift(record);
+  persistSecurityState();
+  return res.status(201).json({ success: true, collection, item: record });
+});
+
+app.put('/api/security/:collection', (req: Request, res: Response) => {
+  const { collection } = req.params;
+  if (!isSecurityCollection(collection)) {
+    return res.status(404).json({ success: false, error: 'Unknown security collection' });
+  }
+  const items = Array.isArray(req.body) ? req.body : req.body?.items;
+  if (!Array.isArray(items)) {
+    return res.status(400).json({ success: false, error: 'An array of items is required' });
+  }
+  (securityState[collection] as any) = items;
+  persistSecurityState();
+  return res.json({ success: true, collection, items });
+});
+
+app.patch('/api/security/:collection/:id', (req: Request, res: Response) => {
+  const { collection, id } = req.params;
+  if (!isSecurityCollection(collection)) {
+    return res.status(404).json({ success: false, error: 'Unknown security collection' });
+  }
+  const items = securityState[collection] as any[];
+  const index = items.findIndex((item) => String(item.id) === id);
+  if (index === -1) return res.status(404).json({ success: false, error: 'Item not found' });
+  items[index] = { ...items[index], ...req.body, id: items[index].id };
+  persistSecurityState();
+  return res.json({ success: true, collection, item: items[index] });
+});
+
+app.delete('/api/security/:collection/:id', (req: Request, res: Response) => {
+  const { collection, id } = req.params;
+  if (!isSecurityCollection(collection)) {
+    return res.status(404).json({ success: false, error: 'Unknown security collection' });
+  }
+  const items = securityState[collection] as any[];
+  const index = items.findIndex((item) => String(item.id) === id);
+  if (index === -1) return res.status(404).json({ success: false, error: 'Item not found' });
+  const [removed] = items.splice(index, 1);
+  persistSecurityState();
+  return res.json({ success: true, collection, item: removed });
+});
+
+// ==========================================
+// PERSISTENT SECURITY DATA STORE
+// ==========================================
+const SECURITY_STATE_FILE = process.env.SKYGUARD_STATE_FILE
+  || (process.env.NODE_ENV === 'production'
+    ? '/tmp/skyguard-state.json'
+    : path.join(process.cwd(), 'data', 'skyguard-state.json'));
+
+function seedSecurityState() {
+  const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
+  return {
+    version: 1,
+    updatedAt: new Date().toISOString(),
+    findings: clone(initialSecurityFindings),
+    protectedAssets: clone(initialProtectedAssets),
+    wafRules: clone(initialWafRules),
+    zeroTrustPolicies: clone(initialZeroTrustPolicies),
+    dsarRequests: clone(initialDsarRequests),
+    consentRecords: clone(initialConsentRecords),
+    complianceFrameworks: clone(initialFrameworks),
+    alerts: clone(initialAlerts),
+    integrations: clone(initialIntegrations),
+    inventoryAssets: clone(initialInventoryAssets),
+    enclaveActivityEvents: clone(initialEnclaveActivityEvents),
+    securityEvents: clone(mockSecurityEvents),
+  };
+}
+
+type SecurityState = ReturnType<typeof seedSecurityState>;
+const SECURITY_COLLECTIONS: Array<keyof Omit<SecurityState, 'version' | 'updatedAt'>> = [
+  'findings',
+  'protectedAssets',
+  'wafRules',
+  'zeroTrustPolicies',
+  'dsarRequests',
+  'consentRecords',
+  'complianceFrameworks',
+  'alerts',
+  'integrations',
+  'inventoryAssets',
+  'enclaveActivityEvents',
+  'securityEvents',
+];
+
+function loadSecurityState(): SecurityState {
+  try {
+    if (!fs.existsSync(SECURITY_STATE_FILE)) return seedSecurityState();
+    const parsed = JSON.parse(fs.readFileSync(SECURITY_STATE_FILE, 'utf8'));
+    const seed = seedSecurityState();
+    for (const key of SECURITY_COLLECTIONS) {
+      if (!Array.isArray(parsed[key])) parsed[key] = seed[key];
+    }
+    parsed.version = Number(parsed.version) || 1;
+    parsed.updatedAt = parsed.updatedAt || new Date().toISOString();
+    return parsed;
+  } catch (error) {
+    console.error('[SkyGuard] Failed to load security state, using seed:', error);
+    return seedSecurityState();
+  }
+}
+
+let securityState = loadSecurityState();
+
+function persistSecurityState() {
+  securityState.updatedAt = new Date().toISOString();
+  fs.mkdirSync(path.dirname(SECURITY_STATE_FILE), { recursive: true });
+  const tempFile = `${SECURITY_STATE_FILE}.${process.pid}.tmp`;
+  fs.writeFileSync(tempFile, JSON.stringify(securityState, null, 2));
+  fs.renameSync(tempFile, SECURITY_STATE_FILE);
+}
+
+function isSecurityCollection(value: string): value is keyof Omit<SecurityState, 'version' | 'updatedAt'> {
+  return SECURITY_COLLECTIONS.includes(value as any);
+}
 
 // In-Memory Sovereign Store for telemetry & events
 interface SkyGuardEventRecord {
@@ -174,14 +334,31 @@ let auditLogsStore: SkyGuardAuditRecord[] = [
 
 // 1. Health Status
 app.get('/api/health', (req: Request, res: Response) => {
+  let dataStoreWritable = false;
+  try {
+    fs.mkdirSync(path.dirname(SECURITY_STATE_FILE), { recursive: true });
+    fs.accessSync(path.dirname(SECURITY_STATE_FILE), fs.constants.W_OK);
+    dataStoreWritable = true;
+  } catch { dataStoreWritable = false; }
   res.json({
-    status: 'HEALTHY',
+    status: dataStoreWritable ? 'HEALTHY' : 'DEGRADED',
     service: 'SkyGuard Sovereign Cyber-Platform Engine',
     version: '4.8.2-sovereign',
     timestamp: new Date().toISOString(),
     enclaveActive: true,
     modules: 78,
     uptimeSec: Math.floor(process.uptime()),
+    services: {
+      database: dataStoreWritable ? 'healthy' : 'unhealthy',
+      api: 'healthy',
+      authentication: (process.env.SKYGUARD_ADMIN_PASSWORD_HASH || '').startsWith('scrypt$') ? 'healthy' : 'unconfigured',
+    },
+    dataStore: {
+      loaded: true,
+      writable: dataStoreWritable,
+      updatedAt: securityState.updatedAt,
+      collections: SECURITY_COLLECTIONS.length,
+    },
   });
 });
 

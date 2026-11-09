@@ -1,24 +1,32 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Activity, CheckCircle2, Copy, RefreshCw, ArrowLeft, Terminal, Server } from 'lucide-react';
-import { getSystemHealth } from '../services/mockSecurityApi';
-
 export default function HealthStatus() {
-  const [healthData, setHealthData] = useState(getSystemHealth());
+  const [healthData, setHealthData] = useState<any>({
+    status: 'checking',
+    timestamp: new Date().toISOString(),
+    services: { database: 'checking', api: 'checking', authentication: 'checking' },
+  });
   const [copied, setCopied] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [viewMode, setViewMode] = useState<'json' | 'visual'>('json');
 
-  const handleRefresh = () => {
+  const loadHealth = async () => {
     setIsRefreshing(true);
-    setTimeout(() => {
-      setHealthData({
-        ...getSystemHealth(),
-        timestamp: new Date().toISOString(),
-      });
+    try {
+      const response = await fetch('/api/health');
+      const data = await response.json();
+      setHealthData(data);
+    } catch {
+      setHealthData({ status: 'unhealthy', timestamp: new Date().toISOString(), services: { database: 'unknown', api: 'unreachable', authentication: 'unknown' } });
+    } finally {
       setIsRefreshing(false);
-    }, 400);
+    }
   };
+
+  useEffect(() => { void loadHealth(); }, []);
+
+  const handleRefresh = () => { void loadHealth(); };
 
   const handleCopy = () => {
     navigator.clipboard.writeText(JSON.stringify(healthData, null, 2));
@@ -127,7 +135,7 @@ export default function HealthStatus() {
                   <div className="text-[10px] font-mono text-slate-400 uppercase font-bold">{srv}</div>
                   <div className="flex items-center gap-2 pt-1">
                     <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>
-                    <span className="text-sm font-black text-slate-900 capitalize">{status}</span>
+                    <span className="text-sm font-black text-slate-900 capitalize">{String(status)}</span>
                   </div>
                 </div>
               ))}

@@ -33,6 +33,7 @@ import Integrations from './pages/Integrations';
 import ProtectedRoute from './components/ProtectedRoute';
 import ErrorBoundary from './components/ErrorBoundary';
 import { AuthProvider } from './features/auth/AuthContext';
+import { SecurityDataProvider } from './features/security/SecurityDataContext';
 import { WorkspaceProvider } from './features/workspaces/WorkspaceContext';
 import LiveRadarSimulator from './components/LiveRadarSimulator';
 import Workspaces from './pages/Workspaces';
@@ -60,8 +61,9 @@ export default function App() {
   return (
     <ErrorBoundary>
       <AuthProvider>
-        <WorkspaceProvider>
-          <BrowserRouter>
+        <SecurityDataProvider>
+          <WorkspaceProvider>
+            <BrowserRouter>
             <Routes>
               {/* Public Website & Authentication Suite Layout */}
               <Route element={<PublicLayout onOpenRadar={() => setIsRadarOpen(true)} />}>
@@ -184,7 +186,8 @@ export default function App() {
               onClose={() => setIsRadarOpen(false)}
             />
           </BrowserRouter>
-        </WorkspaceProvider>
+          </WorkspaceProvider>
+        </SecurityDataProvider>
       </AuthProvider>
     </ErrorBoundary>
   );

@@ -34,12 +34,15 @@ import {
   Eye,
   ChevronRight
 } from 'lucide-react';
-import { initialInventoryAssets, initialEnclaveActivityEvents } from '../services/mockSecurityApi';
+import { useSecurityData } from '../features/security/SecurityDataContext';
 import { InventoryAsset, AssetCategory, EnclaveActivityEvent, EnclaveEventType } from '../types';
 
 export default function Assets() {
-  const [assets, setAssets] = useState<InventoryAsset[]>(initialInventoryAssets);
-  const [activityEvents, setActivityEvents] = useState<EnclaveActivityEvent[]>(initialEnclaveActivityEvents);
+  const { state, updateCollection } = useSecurityData();
+  const assets = state.inventoryAssets;
+  const activityEvents = state.enclaveActivityEvents;
+  const setAssets = (updater: InventoryAsset[] | ((previous: InventoryAsset[]) => InventoryAsset[])) => updateCollection('inventoryAssets', updater);
+  const setActivityEvents = (updater: EnclaveActivityEvent[] | ((previous: EnclaveActivityEvent[]) => EnclaveActivityEvent[])) => updateCollection('enclaveActivityEvents', updater);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedPillar, setSelectedPillar] = useState<string>('all');

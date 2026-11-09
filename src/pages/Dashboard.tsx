@@ -28,11 +28,13 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { featureSetsMeta } from '../data/features';
-import { initialAlerts, initialFrameworks, mockSecurityEvents, initialSecurityFindings, initialProtectedAssets, initialDsarRequests } from '../services/mockSecurityApi';
+import { useSecurityData } from '../features/security/SecurityDataContext';
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const [events, setEvents] = useState(mockSecurityEvents);
+  const { state, updateCollection } = useSecurityData();
+  const events = state.securityEvents;
+  const setEvents = (updater: typeof state.securityEvents | ((previous: typeof state.securityEvents) => typeof state.securityEvents)) => updateCollection('securityEvents', updater);
   const [isScanning, setIsScanning] = useState(false);
   const [scanCompletedMsg, setScanCompletedMsg] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'visual' | 'ascii'>('visual');
@@ -46,12 +48,16 @@ export default function Dashboard() {
     }, 1200);
   };
 
-  // Dashboard Core Metrics
-  const securityScore = 87; // 87 / 100
-  const activeAlertsCount = 3; // 3 Active Alerts (1 Open, 2 Investigating)
-  const protectedAssetsCount = 24; // 24 Protected Sovereign Enclaves
-  const complianceStatusPercent = 92; // 92% Compliance Controls Passed
-  const privacyRequestsCount = 5; // 5 DSAR & Privacy Requests
+  // Dashboard Core Metrics (derived from the server-owned security state)
+  const openFindings = state.findings.filter((finding) => finding.status !== 'resolved');
+  const securityScore = Math.max(0, 100 - openFindings.reduce((total, finding) => total + finding.scoreImpact, 0));
+  const activeAlertsCount = state.alerts.filter((alert) => alert.status === 'new' || alert.status === 'open' || alert.status === 'investigating').length;
+  const protectedAssetsCount = state.inventoryAssets.length;
+  const complianceStatusPercent = state.complianceFrameworks.length
+    ? Math.round(state.complianceFrameworks.reduce((total, framework) => total + framework.overallScore, 0) / state.complianceFrameworks.length)
+    : 0;
+  const privacyRequestsCount = state.dsarRequests.filter((request) => request.status !== 'completed' && request.status !== 'rejected').length;
+  const latestAlert = state.alerts[0];
 
   return (
     <div className="space-y-6 font-sans">
@@ -421,13 +427,13 @@ Privacy Center     (/app/privacy)`}
 
             <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2 text-xs">
               <div className="font-bold text-slate-900">
-                {initialAlerts[0].title}
+                {latestAlert?.title || 'No active alerts'}
               </div>
               <p className="text-slate-600 text-[11px] leading-relaxed line-clamp-2">
-                {initialAlerts[0].description}
+                {latestAlert?.description || 'No active incident detected.'}
               </p>
               <div className="pt-2 flex items-center justify-between text-[11px] font-mono">
-                <span className="text-slate-500">{initialAlerts[0].timestamp}</span>
+                <span className="text-slate-500">{latestAlert?.timestamp || latestAlert?.createdAt || 'Unknown'}</span>
                 <Link
                   to="/app/alerts"
                   className="px-2.5 py-1 rounded bg-rose-600 text-white font-bold hover:bg-rose-700 transition-colors"

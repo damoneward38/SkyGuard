@@ -24,7 +24,8 @@ import {
   Shield,
   FileSpreadsheet
 } from 'lucide-react';
-import { initialDsarRequests, initialConsentRecords, privacyFeatures } from '../services/mockSecurityApi';
+import { privacyFeatures } from '../services/mockSecurityApi';
+import { useSecurityData } from '../features/security/SecurityDataContext';
 import { DsarRequest, ConsentRecord } from '../types';
 
 export default function PrivacyCenter() {
@@ -47,8 +48,9 @@ export default function PrivacyCenter() {
     setSearchParams({ tab });
   };
 
-  // State for Consent Records
-  const [consents, setConsents] = useState<ConsentRecord[]>(initialConsentRecords);
+  const { state, updateCollection } = useSecurityData();
+  const consents = state.consentRecords;
+  const setConsents = (updater: ConsentRecord[] | ((previous: ConsentRecord[]) => ConsentRecord[])) => updateCollection('consentRecords', updater);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'withdrawn'>('all');
   const [isCreatingConsent, setIsCreatingConsent] = useState(false);
@@ -65,7 +67,8 @@ export default function PrivacyCenter() {
   const [legalBasis, setLegalBasis] = useState('Explicit Consent (GDPR Art. 6(1)(a))');
 
   // DSAR & Shredding State
-  const [requests, setRequests] = useState<DsarRequest[]>(initialDsarRequests);
+  const requests = state.dsarRequests;
+  const setRequests = (updater: DsarRequest[] | ((previous: DsarRequest[]) => DsarRequest[])) => updateCollection('dsarRequests', updater);
   const [shredKeyInput, setShredKeyInput] = useState('');
   const [isShredding, setIsShredding] = useState(false);
   const [shredResult, setShredResult] = useState<string | null>(null);

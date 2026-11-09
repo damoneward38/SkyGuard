@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   AlertTriangle, 
   ShieldAlert, 
@@ -28,11 +28,13 @@ import {
   SlidersHorizontal,
   ChevronRight
 } from 'lucide-react';
-import { initialAlerts, getSystemHealth } from '../services/mockSecurityApi';
+import { useSecurityData } from '../features/security/SecurityDataContext';
 import { AlertIncident, AlertSeverity, AlertStatus, HealthCheckResponse } from '../types';
 
 export default function Alerts() {
-  const [alerts, setAlerts] = useState<AlertIncident[]>(initialAlerts);
+  const { state, updateCollection, isLoading, error } = useSecurityData();
+  const alerts = state.alerts;
+  const setAlerts = (updater: AlertIncident[] | ((previous: AlertIncident[]) => AlertIncident[])) => updateCollection('alerts', updater);
   const [severityFilter, setSeverityFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -191,7 +193,20 @@ export default function Alerts() {
     setTimeout(() => setCopiedJson(false), 2000);
   };
 
-  const healthData = getSystemHealth();
+  const [healthData, setHealthData] = useState<any>({
+    status: 'checking',
+    timestamp: new Date().toISOString(),
+    services: { database: 'checking', api: 'checking', authentication: 'checking' },
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/health')
+      .then((response) => response.json())
+      .then((data) => { if (!cancelled) setHealthData(data); })
+      .catch(() => { if (!cancelled) setHealthData({ status: 'unhealthy', timestamp: new Date().toISOString(), services: { api: 'unreachable' } }); });
+    return () => { cancelled = true; };
+  }, []);
 
   return (
     <div className="space-y-6 font-sans">
@@ -652,7 +667,7 @@ export default function Alerts() {
                   <span className="text-[10px] font-mono text-slate-400 uppercase block font-bold">{srv}</span>
                   <div className="flex items-center gap-1.5">
                     <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                    <span className="text-xs font-bold text-emerald-700 capitalize">{st}</span>
+                    <span className="text-xs font-bold text-emerald-700 capitalize">{String(st)}</span>
                   </div>
                 </div>
               ))}

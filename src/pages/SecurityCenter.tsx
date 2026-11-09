@@ -21,7 +21,7 @@ import {
   Search,
   Filter
 } from 'lucide-react';
-import { initialWafRules, initialZeroTrustPolicies, initialSecurityFindings, initialProtectedAssets } from '../services/mockSecurityApi';
+import { useSecurityData } from '../features/security/SecurityDataContext';
 import { WafRule, ZeroTrustPolicy, SecurityFinding, ProtectedAsset } from '../types';
 
 export default function SecurityCenter() {
@@ -33,10 +33,15 @@ export default function SecurityCenter() {
       : 'findings'
   );
 
-  const [findings, setFindings] = useState<SecurityFinding[]>(initialSecurityFindings);
-  const [protectedAssets, setProtectedAssets] = useState<ProtectedAsset[]>(initialProtectedAssets);
-  const [wafRules, setWafRules] = useState<WafRule[]>(initialWafRules);
-  const [ztPolicies, setZtPolicies] = useState<ZeroTrustPolicy[]>(initialZeroTrustPolicies);
+  const { state, updateCollection } = useSecurityData();
+  const findings = state.findings;
+  const protectedAssets = state.protectedAssets;
+  const wafRules = state.wafRules;
+  const ztPolicies = state.zeroTrustPolicies;
+  const setFindings = (updater: SecurityFinding[] | ((previous: SecurityFinding[]) => SecurityFinding[])) => updateCollection('findings', updater);
+  const setProtectedAssets = (updater: ProtectedAsset[] | ((previous: ProtectedAsset[]) => ProtectedAsset[])) => updateCollection('protectedAssets', updater);
+  const setWafRules = (updater: WafRule[] | ((previous: WafRule[]) => WafRule[])) => updateCollection('wafRules', updater);
+  const setZtPolicies = (updater: ZeroTrustPolicy[] | ((previous: ZeroTrustPolicy[]) => ZeroTrustPolicy[])) => updateCollection('zeroTrustPolicies', updater);
   
   const [isAddingRule, setIsAddingRule] = useState(false);
   const [newRuleName, setNewRuleName] = useState('');

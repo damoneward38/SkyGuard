@@ -6,12 +6,18 @@ export default function ServerError() {
   const [isRetrying, setIsRetrying] = useState(false);
   const [retrySuccess, setRetrySuccess] = useState(false);
 
-  const handleRetry = () => {
+  const handleRetry = async () => {
     setIsRetrying(true);
-    setTimeout(() => {
+    try {
+      const res = await fetch('/api/health');
+      if (res.ok) {
+        setRetrySuccess(true);
+      }
+    } catch {
+      setRetrySuccess(false);
+    } finally {
       setIsRetrying(false);
-      setRetrySuccess(true);
-    }, 1000);
+    }
   };
 
   return (

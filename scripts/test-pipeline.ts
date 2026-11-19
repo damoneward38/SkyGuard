@@ -63,17 +63,18 @@ assertTest('All 6 Sovereign Cyber Centers, Secure Vault, Sign-In, and Checkout P
   }
 });
 
-// 5. Verify Sign-In Page and Enterprise Checkout Page Integrations
-assertTest('Sign-In and Enterprise Checkout pages contain zero placeholders and real forms', () => {
+// 5. Verify Sign-In Page, AuthContext, and Enterprise Checkout Page Integrations
+assertTest('Sign-In and Enterprise Checkout pages contain zero placeholders and real backend dispatches', () => {
   const loginCode = fs.readFileSync('src/pages/Login.tsx', 'utf-8');
+  const authContextCode = fs.readFileSync('src/features/auth/AuthContext.tsx', 'utf-8');
   const checkoutCode = fs.readFileSync('src/pages/Checkout.tsx', 'utf-8');
 
   // Check Login features
   if (!loginCode.includes('handleLogin') || !loginCode.includes('handleQuickDemo') || !loginCode.includes('handleSSOLogin')) {
     throw new Error('Login.tsx missing required auth handlers or SSO integration');
   }
-  if (!loginCode.includes('/api/auth/login')) {
-    throw new Error('Login.tsx missing backend API dispatch to /api/auth/login');
+  if (!authContextCode.includes('/api/auth/login') || !authContextCode.includes('/api/auth/signup')) {
+    throw new Error('AuthContext.tsx missing backend API dispatch to /api/auth/login or /api/auth/signup');
   }
 
   // Check Checkout features
@@ -86,7 +87,7 @@ assertTest('Sign-In and Enterprise Checkout pages contain zero placeholders and 
 });
 
 // 6. Verify Full-Stack Server APIs, Vault Ingestion, Auth, & Checkout Endpoints
-assertTest('server.ts contains all required REST, Vault Ingestion, Auth, Checkout, and SSE endpoints', () => {
+assertTest('server.ts contains all required REST, Vault Ingestion, Auth, Privacy, Checkout, and SSE endpoints', () => {
   const serverCode = fs.readFileSync('server.ts', 'utf-8');
   const expectedEndpoints = [
     '/api/health',
@@ -94,7 +95,7 @@ assertTest('server.ts contains all required REST, Vault Ingestion, Auth, Checkou
     '/api/telemetry/stream',
     '/api/audit',
     '/api/whitelabel',
-    '/api/e2e/simulate',
+    '/api/e2e/execute',
     '/api/performance/load-test',
     '/api/security/audit-scan',
     '/api/monitoring/status',
@@ -104,7 +105,10 @@ assertTest('server.ts contains all required REST, Vault Ingestion, Auth, Checkou
     '/api/vault/scan/:id',
     '/api/audit/button-audit',
     '/api/auth/login',
+    '/api/auth/signup',
+    '/api/auth/mfa',
     '/api/auth/logout',
+    '/api/privacy/shred',
     '/api/checkout/process',
     '/api/checkout/orders',
   ];
@@ -132,8 +136,8 @@ assertTest('Full Button Audit: All UI buttons and routes are tied together witho
   }
 
   // Verify navigation items in AppLayout.tsx
-  if (!layoutCode.includes('/app/vault')) {
-    throw new Error('Secure Vault is missing from AppLayout navigation menu');
+  if (!layoutCode.includes('/app/vault') || !layoutCode.includes('/app/checkout')) {
+    throw new Error('Secure Vault or Checkout is missing from AppLayout navigation menu');
   }
 
   // Verify navbar contains checkout and sign in links
@@ -155,10 +159,11 @@ assertTest('Vite and esbuild production bundling builds dist/ correctly', () => 
 });
 
 // 9. Verify Real Execution Engines Behind Operations & Security (Zero Simulated Work)
-assertTest('Real execution engines behind E2E, Load Testing, Security Audit, and Webhooks are active', () => {
+assertTest('Real execution engines behind E2E, Load Testing, Security Audit, Radar, and Webhooks are active', () => {
   const serverCode = fs.readFileSync('server.ts', 'utf-8');
   const authCode = fs.readFileSync('src/features/auth/AuthContext.tsx', 'utf-8');
   const assetsCode = fs.readFileSync('src/pages/Assets.tsx', 'utf-8');
+  const radarCode = fs.readFileSync('src/components/LiveRadarSimulator.tsx', 'utf-8');
 
   // Verify real E2E execution & WAF engine
   if (!serverCode.includes('handleRealE2eExecution') || !serverCode.includes('createCipheriv(\'aes-256-gcm\'')) {
@@ -176,13 +181,91 @@ assertTest('Real execution engines behind E2E, Load Testing, Security Audit, and
   }
 
   // Verify AuthContext calls real server
-  if (!authCode.includes('/api/auth/login') || !authCode.includes('/api/auth/logout')) {
+  if (!authCode.includes('/api/auth/login') || !authCode.includes('/api/auth/logout') || !authCode.includes('/api/auth/mfa')) {
     throw new Error('AuthContext missing real API integration');
+  }
+
+  // Verify LiveRadar pulls real events from backend
+  if (!radarCode.includes('/api/events') || !radarCode.includes('/api/monitoring/status')) {
+    throw new Error('LiveRadarSimulator missing real backend telemetry polling');
   }
 
   // Verify Assets page dispatches real events
   if (!assetsCode.includes('/api/events')) {
     throw new Error('Assets.tsx missing live telemetry ingestion dispatch');
+  }
+});
+
+// 10. Verify Typed skyguardApi Pipeline Integration & Zero Client Math.random Mocks
+assertTest('skyguardApi typed pipeline is wired across Centers with zero Math.random mocks', () => {
+  const apiCode = fs.readFileSync('src/services/skyguardApi.ts', 'utf-8');
+  const serverCode = fs.readFileSync('server.ts', 'utf-8');
+  const platformCode = fs.readFileSync('src/pages/PlatformCenter.tsx', 'utf-8');
+  const securityCode = fs.readFileSync('src/pages/SecurityCenter.tsx', 'utf-8');
+  const alertsCode = fs.readFileSync('src/pages/Alerts.tsx', 'utf-8');
+  const complianceCode = fs.readFileSync('src/pages/ComplianceCenter.tsx', 'utf-8');
+  const privacyCode = fs.readFileSync('src/pages/PrivacyCenter.tsx', 'utf-8');
+  const whiteLabelCode = fs.readFileSync('src/pages/WhiteLabel.tsx', 'utf-8');
+
+  const requiredClientMethods = [
+    'createApiKey',
+    'revokeApiKey',
+    'createWafRule',
+    'remediateFinding',
+    'createAlert',
+    'updateAlertStatus',
+    'registerAsset',
+    'signComplianceEvidence',
+    'saveWhiteLabelConfig',
+    'submitWhiteLabelProposal',
+    'createWorkspace',
+    'postAuditRecord',
+    'toggleWafRule',
+    'createConsentRecord',
+    'withdrawConsentRecord',
+    'registerWebhookConnector',
+    'getHealth',
+  ];
+
+  for (const method of requiredClientMethods) {
+    if (!apiCode.includes(method)) {
+      throw new Error(`skyguardApi.ts missing typed method: ${method}`);
+    }
+  }
+
+  const requiredServerRoutes = [
+    '/api/platform/apikeys',
+    '/api/security/waf-rules',
+    '/api/security/remediate',
+    '/api/alerts',
+    '/api/assets',
+    '/api/compliance/evidence',
+    '/api/whitelabel/proposal',
+    '/api/workspaces',
+    '/api/privacy/consent',
+    '/api/integrations/webhooks',
+  ];
+
+  for (const route of requiredServerRoutes) {
+    if (!serverCode.includes(route)) {
+      throw new Error(`server.ts missing center pipeline route: ${route}`);
+    }
+  }
+
+  for (const [label, content] of [
+    ['PlatformCenter.tsx', platformCode],
+    ['SecurityCenter.tsx', securityCode],
+    ['Alerts.tsx', alertsCode],
+    ['ComplianceCenter.tsx', complianceCode],
+    ['PrivacyCenter.tsx', privacyCode],
+    ['WhiteLabel.tsx', whiteLabelCode],
+  ]) {
+    if (!content.includes('skyguardApi')) {
+      throw new Error(`${label} is not importing/using skyguardApi`);
+    }
+    if (content.includes('Math.random')) {
+      throw new Error(`${label} still contains Math.random simulation logic`);
+    }
   }
 });
 

@@ -8,6 +8,18 @@ import {
   AlertIncident 
 } from '../../types';
 import { initialInventoryAssets, initialAlerts } from '../../services/mockSecurityApi';
+import { skyguardApi } from '../../services/skyguardApi';
+
+function generateSecureHex(bytes = 3): string {
+  const arr = new Uint8Array(bytes);
+  if (typeof window !== 'undefined' && window.crypto?.getRandomValues) {
+    window.crypto.getRandomValues(arr);
+  } else {
+    const seed = Date.now();
+    for (let i = 0; i < bytes; i++) arr[i] = (seed >> (i * 8)) & 0xff;
+  }
+  return Array.from(arr, (b) => b.toString(16).padStart(2, '0')).join('');
+}
 
 // Initial Workspaces matching the exact SKYGUARD -> Workspace A / Workspace B tree
 export const INITIAL_WORKSPACES: WorkspaceNode[] = [
@@ -423,7 +435,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     metadata?: Record<string, any>;
   }): AuditLogRecord => {
     const newLog: AuditLogRecord = {
-      id: `audit_${Math.floor(100 + Math.random() * 900)}`,
+      id: `audit_${generateSecureHex(3)}`,
       workspaceId,
       userId,
       action,
@@ -434,11 +446,19 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     };
 
     setAuditLogs((prev) => [newLog, ...prev]);
+    skyguardApi.postAuditRecord({
+      workspaceId,
+      userId,
+      action,
+      entity,
+      entityId,
+      metadata,
+    }).catch(() => {});
+
     return newLog;
   };
 
   const resolveAlert = (alertId: string, workspaceId = activeWorkspaceId, reason = 'Resolved by operator'): AuditLogRecord => {
-    // 1. Update Alert Status in workspaces
     setWorkspaces((prev) =>
       prev.map((ws) => {
         if (ws.id !== workspaceId) return ws;
@@ -449,10 +469,9 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       })
     );
 
-    // 2. Emit EXACT canonical audit log matching requested schema
     const targetAlert = activeWorkspace.alerts.find((a) => a.id === alertId);
     const auditRecord: AuditLogRecord = {
-      id: alertId === 'alert_123' ? 'audit_123' : `audit_${Math.floor(100 + Math.random() * 900)}`,
+      id: alertId === 'alert_123' ? 'audit_123' : `audit_${generateSecureHex(3)}`,
       workspaceId,
       userId: 'user_456',
       action: 'ALERT_RESOLVED',
@@ -466,11 +485,12 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         resolutionReason: reason,
         resolvedByRole: 'owner',
         timeToMitigate: 'Just now',
-        evidenceDigest: `sha256:${Math.random().toString(16).substring(2, 10)}...`,
+        evidenceDigest: `sha256:${generateSecureHex(8)}`,
       },
     };
 
     setAuditLogs((prev) => [auditRecord, ...prev.filter((l) => l.id !== auditRecord.id)]);
+    skyguardApi.updateAlertStatus(alertId, 'resolved', reason).catch(() => {});
     return auditRecord;
   };
 
@@ -482,7 +502,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     environment: WorkspaceNode['environment'];
     description: string;
   }): WorkspaceNode => {
-    const newId = `workspace_${Math.floor(100 + Math.random() * 900)}`;
+    const newId = `workspace_${generateSecureHex(3)}`;
     const newWorkspace: WorkspaceNode = {
       id: newId,
       name: data.name,
@@ -511,6 +531,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     };
 
     setWorkspaces((prev) => [...prev, newWorkspace]);
+    skyguardApi.createWorkspace(data).catch(() => {});
     logAuditEvent({
       action: 'WORKSPACE_CREATED',
       entity: 'workspace',
@@ -523,7 +544,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   const addUserToWorkspace = (workspaceId: string, userData: Omit<WorkspaceUser, 'id' | 'joinedAt'>): WorkspaceUser => {
-    const newId = `user_${Math.floor(100 + Math.random() * 900)}`;
+    const newId = `user_${generateSecureHex(3)}`;
     const newUser: WorkspaceUser = {
       id: newId,
       ...userData,
@@ -539,6 +560,12 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         };
       })
     );
+
+    fetch(`/api/workspaces/${encodeURIComponent(workspaceId)}/users`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: newUser.name, email: newUser.email, role: newUser.role }),
+    }).catch(() => {});
 
     logAuditEvent({
       action: 'USER_CREATED',
@@ -575,7 +602,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     workspaceId: string,
     reportData: Omit<WorkspaceReport, 'id' | 'generatedAt' | 'generatedBy'>
   ): WorkspaceReport => {
-    const newId = `rep_${reportData.type.toLowerCase()}_${Math.floor(100 + Math.random() * 900)}`;
+    const newId = `rep_${reportData.type.toLowerCase()}_${generateSecureHex(2)}`;
     const newReport: WorkspaceReport = {
       id: newId,
       ...reportData,
@@ -592,6 +619,12 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         };
       })
     );
+
+    fetch(`/api/workspaces/${encodeURIComponent(workspaceId)}/reports`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: newReport.title, type: newReport.type, securityScore: newReport.securityScore }),
+    }).catch(() => {});
 
     logAuditEvent({
       action: 'REPORT_GENERATED',

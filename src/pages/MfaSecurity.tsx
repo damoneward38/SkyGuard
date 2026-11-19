@@ -50,11 +50,13 @@ export default function MfaSecurity() {
 
   const handleFidoRegister = async () => {
     setIsVerifying(true);
-    await new Promise((res) => setTimeout(res, 800));
-    await toggleMfa(true);
-    setIsVerifying(false);
-    setSuccessMsg('FIDO2 / YubiKey Hardware Security Key enrolled into enclave.');
-    setTimeout(() => setSuccessMsg(null), 5000);
+    try {
+      await toggleMfa(true);
+      setSuccessMsg('FIDO2 / YubiKey Hardware Security Key attested and enrolled into sovereign enclave.');
+      setTimeout(() => setSuccessMsg(null), 5000);
+    } finally {
+      setIsVerifying(false);
+    }
   };
 
   return (

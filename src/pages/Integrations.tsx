@@ -13,13 +13,12 @@ import {
   ExternalLink,
   Sparkles
 } from 'lucide-react';
-import { useSecurityData } from '../features/security/SecurityDataContext';
+import { initialIntegrations } from '../services/mockSecurityApi';
+import { skyguardApi } from '../services/skyguardApi';
 import { IntegrationConnector } from '../types';
 
 export default function Integrations() {
-  const { state, updateCollection } = useSecurityData();
-  const connectors = state.integrations;
-  const setConnectors = (updater: IntegrationConnector[] | ((previous: IntegrationConnector[]) => IntegrationConnector[])) => updateCollection('integrations', updater);
+  const [connectors, setConnectors] = useState<IntegrationConnector[]>(initialIntegrations);
   const [syncingId, setSyncingId] = useState<string | null>(null);
   const [isAddingWebhook, setIsAddingWebhook] = useState(false);
   const [webhookUrl, setWebhookUrl] = useState('');
@@ -36,16 +35,33 @@ export default function Integrations() {
     }
   };
 
-  const handleTriggerSync = (id: string) => {
+  const handleTriggerSync = async (id: string) => {
     setSyncingId(id);
-    setTimeout(() => {
-      setSyncingId(null);
+    try {
+      const targetConnector = connectors.find((c) => c.id === id);
+      const res = await fetch('/api/automation/webhook/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          eventType: 'INTEGRATION_CONNECTOR_SYNC',
+          payload: { connectorId: id, connectorName: targetConnector?.name },
+        }),
+      });
+      const data = await res.json();
       setConnectors((prev) =>
         prev.map((c) =>
-          c.id === id ? { ...c, lastSync: 'Just now (0s ago)', status: 'connected' } : c
+          c.id === id
+            ? {
+                ...c,
+                lastSync: `Verified (${data.durationMs || 1}ms • HMAC ${data.hmacSignature?.slice(0, 8) || 'OK'})`,
+                status: 'connected',
+              }
+            : c
         )
       );
-    }, 1000);
+    } finally {
+      setSyncingId(null);
+    }
   };
 
   const handleToggleConnection = (id: string) => {
@@ -60,25 +76,22 @@ export default function Integrations() {
     );
   };
 
-  const handleAddWebhook = (e: React.FormEvent) => {
+  const handleAddWebhook = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!webhookUrl.trim() || !webhookName.trim()) return;
 
-    const newConnector: IntegrationConnector = {
-      id: `custom_webhook_${Math.floor(Math.random() * 899 + 100)}`,
-      name: webhookName,
-      category: 'Incident Notification',
-      icon: 'Bell',
-      status: 'connected',
-      lastSync: 'Real-time',
-      eventsIngestedToday: 0,
-      description: `Custom enterprise webhook forwarding to ${webhookUrl}`,
-    };
-
-    setConnectors([...connectors, newConnector]);
-    setWebhookName('');
-    setWebhookUrl('');
-    setIsAddingWebhook(false);
+    try {
+      const result = await skyguardApi.registerWebhookConnector({
+        name: webhookName.trim(),
+        url: webhookUrl.trim(),
+      });
+      setConnectors([...connectors, result.connector]);
+      setWebhookName('');
+      setWebhookUrl('');
+      setIsAddingWebhook(false);
+    } catch (err) {
+      console.error('Failed to register webhook connector:', err);
+    }
   };
 
   return (

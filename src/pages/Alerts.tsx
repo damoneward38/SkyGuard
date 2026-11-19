@@ -28,13 +28,12 @@ import {
   SlidersHorizontal,
   ChevronRight
 } from 'lucide-react';
-import { useSecurityData } from '../features/security/SecurityDataContext';
+import { initialAlerts, getSystemHealth } from '../services/mockSecurityApi';
+import { skyguardApi } from '../services/skyguardApi';
 import { AlertIncident, AlertSeverity, AlertStatus, HealthCheckResponse } from '../types';
 
 export default function Alerts() {
-  const { state, updateCollection, isLoading, error } = useSecurityData();
-  const alerts = state.alerts;
-  const setAlerts = (updater: AlertIncident[] | ((previous: AlertIncident[]) => AlertIncident[])) => updateCollection('alerts', updater);
+  const [alerts, setAlerts] = useState<AlertIncident[]>(initialAlerts);
   const [severityFilter, setSeverityFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -105,71 +104,76 @@ export default function Alerts() {
   }, [alerts, severityFilter, statusFilter, searchQuery]);
 
   // Handler to update status
-  const handleUpdateStatus = (id: string, newStatus: AlertStatus) => {
-    setAlerts((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, status: newStatus } : a))
-    );
-    const updated = alerts.find(a => a.id === id);
-    setActionSuccessMsg(`Updated status of [${id}] to "${newStatus.toUpperCase()}".`);
-    setTimeout(() => setActionSuccessMsg(null), 3000);
+  const handleUpdateStatus = async (id: string, newStatus: AlertStatus) => {
+    try {
+      const result = await skyguardApi.updateAlertStatus(id, newStatus, `STATUS_CHANGE_${newStatus.toUpperCase()}`);
+      setAlerts((prev) =>
+        prev.map((a) => (a.id === id ? { ...a, status: newStatus, evidenceDigest: result.evidenceDigest } : a))
+      );
+      setActionSuccessMsg(`Updated status of [${id}] to "${newStatus.toUpperCase()}" (Proof: ${result.evidenceDigest}).`);
+      setTimeout(() => setActionSuccessMsg(null), 3000);
+    } catch (err: any) {
+      setActionSuccessMsg(err.message || `Failed to update status for [${id}].`);
+    }
   };
 
   // Handler to update assignee
-  const handleUpdateAssignee = (id: string, assignee: string | null) => {
-    setAlerts((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, assignedTo: assignee } : a))
-    );
-    setActionSuccessMsg(`Updated assignment of [${id}] to ${assignee ? `"${assignee}"` : 'null (Unassigned)'}.`);
-    setTimeout(() => setActionSuccessMsg(null), 3000);
+  const handleUpdateAssignee = async (id: string, assignee: string | null) => {
+    try {
+      const current = alerts.find((a) => a.id === id);
+      await skyguardApi.updateAlertStatus(id, current?.status || 'investigating', assignee ? `ASSIGNED_TO_${assignee}` : 'UNASSIGNED');
+      setAlerts((prev) =>
+        prev.map((a) => (a.id === id ? { ...a, assignedTo: assignee } : a))
+      );
+      setActionSuccessMsg(`Updated assignment of [${id}] to ${assignee ? `"${assignee}"` : 'null (Unassigned)'}.`);
+      setTimeout(() => setActionSuccessMsg(null), 3000);
+    } catch (err: any) {
+      setActionSuccessMsg(err.message || `Failed to update assignee for [${id}].`);
+    }
   };
 
   // Handler for SOAR containment
-  const handleExecuteContainment = (action: string) => {
+  const handleExecuteContainment = async (action: string) => {
     if (!selectedIncident) return;
     const targetAsset = selectedIncident.affectedAsset || selectedIncident.target || 'affectedAsset';
-    setActionSuccessMsg(`Executed containment: [${action}] on target ${targetAsset}. Status marked as RESOLVED.`);
-    
-    setAlerts((prev) =>
-      prev.map((a) => (a.id === selectedIncident.id ? { ...a, status: 'resolved' } : a))
-    );
 
-    setTimeout(() => {
-      setActionSuccessMsg(null);
+    try {
+      const result = await skyguardApi.updateAlertStatus(selectedIncident.id, 'resolved', action);
+      setAlerts((prev) =>
+        prev.map((a) => (a.id === selectedIncident.id ? { ...a, status: 'resolved', evidenceDigest: result.evidenceDigest } : a))
+      );
+      setActionSuccessMsg(`Executed containment: [${action}] on target ${targetAsset}. Status marked as RESOLVED (Digest: ${result.evidenceDigest}).`);
       setSelectedIncident(null);
-    }, 2500);
+      setTimeout(() => setActionSuccessMsg(null), 4000);
+    } catch (err: any) {
+      setActionSuccessMsg(err.message || 'Failed to execute SOAR containment.');
+    }
   };
 
   // Handler to create new alert
-  const handleCreateAlert = (e: React.FormEvent) => {
+  const handleCreateAlert = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newAlertTitle.trim()) return;
 
-    const newId = `alert_${Math.floor(100 + Math.random() * 900)}`;
-    const newIncident: AlertIncident = {
-      id: newId,
-      title: newAlertTitle.trim(),
-      severity: newAlertSeverity,
-      status: newAlertStatus,
-      source: newAlertSource.trim() || 'authentication',
-      createdAt: new Date().toISOString(),
-      affectedAsset: newAlertAsset.trim() || 'api.skyguard.com',
-      assignedTo: newAlertAssignee === 'unassigned' ? null : newAlertAssignee,
-      target: newAlertAsset.trim() || 'api.skyguard.com',
-      timestamp: 'Just now',
-      description: `User-reported or telemetry triggered incident for ${newAlertAsset}.`,
-      mitigationSteps: [
-        'Perform zero-trust enclave isolation',
-        'Verify origin IP reputation and token exchange logs',
-        'Quarantine affected session tokens'
-      ],
-      evidenceDigest: `sha256:${Math.random().toString(16).substring(2, 12)}...`
-    };
+    try {
+      const result = await skyguardApi.createAlert({
+        title: newAlertTitle.trim(),
+        severity: newAlertSeverity,
+        status: newAlertStatus,
+        source: newAlertSource.trim() || 'authentication',
+        affectedAsset: newAlertAsset.trim() || 'api.skyguard.com',
+        assignedTo: newAlertAssignee === 'unassigned' ? null : newAlertAssignee,
+      });
 
-    setAlerts([newIncident, ...alerts]);
-    setShowCreateModal(false);
-    setNewAlertTitle('');
-    setActionSuccessMsg(`Successfully registered new alert [${newId}] - "${newIncident.title}"`);
-    setTimeout(() => setActionSuccessMsg(null), 3500);
+      const newIncident = result.alert;
+      setAlerts([newIncident, ...alerts]);
+      setShowCreateModal(false);
+      setNewAlertTitle('');
+      setActionSuccessMsg(`Successfully registered new alert [${newIncident.id}] - "${newIncident.title}"`);
+      setTimeout(() => setActionSuccessMsg(null), 3500);
+    } catch (err: any) {
+      setActionSuccessMsg(err.message || 'Failed to register security alert.');
+    }
   };
 
   // Helper to format exact user JSON representation
@@ -193,19 +197,18 @@ export default function Alerts() {
     setTimeout(() => setCopiedJson(false), 2000);
   };
 
-  const [healthData, setHealthData] = useState<any>({
-    status: 'checking',
-    timestamp: new Date().toISOString(),
-    services: { database: 'checking', api: 'checking', authentication: 'checking' },
-  });
+  const [healthData, setHealthData] = useState<HealthCheckResponse>(getSystemHealth());
 
   useEffect(() => {
-    let cancelled = false;
-    fetch('/api/health')
-      .then((response) => response.json())
-      .then((data) => { if (!cancelled) setHealthData(data); })
-      .catch(() => { if (!cancelled) setHealthData({ status: 'unhealthy', timestamp: new Date().toISOString(), services: { api: 'unreachable' } }); });
-    return () => { cancelled = true; };
+    skyguardApi.getHealth()
+      .then((res) => {
+        const normalized = typeof res?.status === 'string' ? res.status.toLowerCase() : '';
+        if (normalized === 'healthy' || normalized === 'degraded' || normalized === 'unhealthy') {
+          const typedStatus: HealthCheckResponse['status'] = normalized;
+          setHealthData((prev) => ({ ...prev, ...res, status: typedStatus }));
+        }
+      })
+      .catch(() => {});
   }, []);
 
   return (
@@ -667,7 +670,7 @@ export default function Alerts() {
                   <span className="text-[10px] font-mono text-slate-400 uppercase block font-bold">{srv}</span>
                   <div className="flex items-center gap-1.5">
                     <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                    <span className="text-xs font-bold text-emerald-700 capitalize">{String(st)}</span>
+                    <span className="text-xs font-bold text-emerald-700 capitalize">{st}</span>
                   </div>
                 </div>
               ))}

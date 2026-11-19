@@ -176,6 +176,7 @@ export default function Checkout() {
   // Submission State
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStep, setProcessingStep] = useState<string>('');
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [orderComplete, setOrderComplete] = useState<any | null>(null);
   const [showPrintInvoice, setShowPrintInvoice] = useState(false);
 
@@ -250,20 +251,18 @@ export default function Checkout() {
   const handleProcessOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!agreeTerms) {
+      setCheckoutError('Please accept the Master Services Agreement to continue.');
       return;
     }
+    if (!fullName.trim() || !email.trim() || !company.trim()) {
+      setCheckoutError('Full name, corporate email, and company name are required.');
+      return;
+    }
+    setCheckoutError(null);
     setIsProcessing(true);
+    setProcessingStep('Dispatching encrypted order & provisioning sovereign enclave license...');
 
     try {
-      setProcessingStep('1/4: Cryptographically verifying identity & company credentials...');
-      await new Promise((r) => setTimeout(r, 600));
-
-      setProcessingStep('2/4: Allocating dedicated sovereign enclave cluster & zero-trust mesh...');
-      await new Promise((r) => setTimeout(r, 700));
-
-      setProcessingStep('3/4: Generating SHA-256 Merkle license certificate & SLA guarantee...');
-      await new Promise((r) => setTimeout(r, 600));
-
       const payload = {
         planId: activePlan.id,
         planName: activePlan.name,
@@ -292,48 +291,21 @@ export default function Checkout() {
         cardBrand: 'Visa Sovereign',
       };
 
-      let completedOrder: any = null;
-      try {
-        const res = await fetch('/api/checkout/process', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          completedOrder = data.order;
-        }
-      } catch {
-        // Fallback to client generation
+      const res = await fetch('/api/checkout/process', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success || !data.order) {
+        throw new Error(data.error || 'Checkout verification failed. Please review billing fields.');
       }
 
-      if (!completedOrder) {
-        completedOrder = {
-          orderId: `SKY-ORD-${Date.now().toString().slice(-6)}-SEC`,
-          timestamp: new Date().toISOString(),
-          planId: activePlan.id,
-          planName: activePlan.name,
-          billingCycle: isAnnual ? 'annual' : 'monthly',
-          addOns: payload.addOns,
-          billingDetails: payload.billingDetails,
-          paymentMethod: paymentMethod === 'card' ? 'Corporate Card (Visa •••• 4242)' : 'Enterprise Wire ACH',
-          subtotal: rawSubtotal,
-          discount: discountAmount,
-          taxVat: taxAmount,
-          total: grandTotal,
-          licenseKey: `SG-${activePlan.id.toUpperCase()}-77A1-99B2-C334`,
-          transactionHash: '0x9b3f112e4c88a91c0b721e549112a884ef',
-          tenantUrl: `https://${company.toLowerCase().replace(/[^a-z0-9]/g, '') || 'defense'}.skyguard.mesh`,
-          status: 'PROVISIONED',
-        };
-      }
-
-      setProcessingStep('4/4: Sovereign Tenant Activated Successfully!');
-      await new Promise((r) => setTimeout(r, 400));
-
-      // Update auth user plan
       updatePlan(activePlan.id);
-      setOrderComplete(completedOrder);
+      setOrderComplete(data.order);
+    } catch (err: any) {
+      setCheckoutError(err.message || 'Unable to process checkout order against sovereign backend.');
     } finally {
       setIsProcessing(false);
     }
@@ -1064,6 +1036,14 @@ export default function Checkout() {
                   </span>
                 </label>
               </div>
+
+              {/* Error feedback if validation or server processing fails */}
+              {checkoutError && (
+                <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-800 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+                  <span>{checkoutError}</span>
+                </div>
+              )}
 
               {/* Authorize & Provision Button */}
               <button

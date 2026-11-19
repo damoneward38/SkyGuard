@@ -28,6 +28,7 @@ import { useWorkspace } from '../hooks/useWorkspace';
 import { useAuth } from '../hooks/useAuth';
 import { SecurityApiKey } from '../types';
 import { DEFAULT_WHITE_LABEL_SETTINGS } from './WhiteLabel';
+import { skyguardApi } from '../services/skyguardApi';
 
 export default function PlatformCenter() {
   const { activeWorkspace, auditLogs, logAuditEvent } = useWorkspace();
@@ -83,43 +84,45 @@ export default function PlatformCenter() {
     setTimeout(() => setCopiedKey(null), 2000);
   };
 
-  const handleCreateApiKey = (e: React.FormEvent) => {
+  const handleCreateApiKey = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newKeyName.trim()) return;
 
-    const rawSecret = `sk_live_${Math.random().toString(36).substring(2, 10)}_${Math.random().toString(36).substring(2, 15)}`;
-    const newKeyRecord: SecurityApiKey = {
-      id: `key_${Math.floor(10000 + Math.random() * 90000)}`,
-      name: newKeyName.trim(),
-      prefix: 'sk_live',
-      maskedKey: `${rawSecret.substring(0, 12)}••••••••••••••••${rawSecret.substring(rawSecret.length - 4)}`,
-      role: newKeyRole,
-      createdAt: new Date().toISOString().split('T')[0],
-      expiresAt: '2027-12-31',
-      lastUsed: 'Never',
-      status: 'active',
-    };
+    try {
+      const result = await skyguardApi.createApiKey({
+        name: newKeyName.trim(),
+        role: newKeyRole,
+      });
 
-    setApiKeys((prev) => [newKeyRecord, ...prev]);
-    setGeneratedKeyResult(rawSecret);
+      setApiKeys((prev) => [result.key, ...prev]);
+      setGeneratedKeyResult(result.rawSecret);
+      setNewKeyName('');
 
-    logAuditEvent({
-      action: 'API_KEY_CREATED',
-      entity: 'api_key',
-      entityId: newKeyRecord.id,
-      metadata: { keyName: newKeyRecord.name, role: newKeyRecord.role },
-    });
+      logAuditEvent({
+        action: 'API_KEY_CREATED',
+        entity: 'api_key',
+        entityId: result.key.id,
+        metadata: { keyName: result.key.name, role: result.key.role },
+      });
+    } catch (err: any) {
+      notify(err.message || 'Failed to generate cryptographic API key.');
+    }
   };
 
-  const handleRevokeKey = (keyId: string) => {
-    setApiKeys((prev) => prev.map((k) => (k.id === keyId ? { ...k, status: 'revoked' as const } : k)));
-    logAuditEvent({
-      action: 'API_KEY_REVOKED',
-      entity: 'api_key',
-      entityId: keyId,
-      metadata: { keyId },
-    });
-    notify(`Revoked API key ${keyId}`);
+  const handleRevokeKey = async (keyId: string) => {
+    try {
+      await skyguardApi.revokeApiKey(keyId);
+      setApiKeys((prev) => prev.map((k) => (k.id === keyId ? { ...k, status: 'revoked' as const } : k)));
+      logAuditEvent({
+        action: 'API_KEY_REVOKED',
+        entity: 'api_key',
+        entityId: keyId,
+        metadata: { keyId },
+      });
+      notify(`Revoked API key ${keyId}`);
+    } catch (err: any) {
+      notify(err.message || `Failed to revoke API key ${keyId}`);
+    }
   };
 
   const filteredAuditLogs = auditLogs.filter((log) => {

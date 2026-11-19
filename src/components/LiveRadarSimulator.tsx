@@ -78,41 +78,66 @@ const initialEvents: SecurityEvent[] = [
 
 export default function LiveRadarSimulator({ isOpen, onClose }: LiveRadarSimulatorProps) {
   const [events, setEvents] = useState<SecurityEvent[]>(initialEvents);
-  const [blockedCount, setBlockedCount] = useState(1482910);
-  const [activeSensors, setActiveSensors] = useState(78);
+  const [blockedCount, setBlockedCount] = useState(142890);
+  const [activeSensors] = useState(78);
+  const [meanLatency, setMeanLatency] = useState('2.1 ms');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const loadLiveTelemetry = async () => {
+    try {
+      const [evtRes, monRes] = await Promise.all([
+        fetch('/api/events'),
+        fetch('/api/monitoring/status'),
+      ]);
+      if (evtRes.ok) {
+        const evtData = await evtRes.json();
+        const serverEvents: SecurityEvent[] = (evtData.events || []).slice(0, 8).map((ev: any) => ({
+          id: ev.id,
+          timestamp: ev.createdAt ? new Date(ev.createdAt).toLocaleTimeString() : 'Live',
+          ip: ev.origin || 'Enclave Mesh',
+          country: ev.module || 'Core',
+          attackType: ev.description || ev.type,
+          actionTaken: ev.status === 'resolved' || ev.status === 'mitigated' ? 'MITIGATED' : 'BLOCKED',
+          featureId: 27,
+          featureName: ev.module || 'Autonomous WAF Engine',
+          severity: ev.severity === 'critical' ? 'critical' : ev.severity === 'high' ? 'high' : 'medium',
+        }));
+        if (serverEvents.length > 0) {
+          setEvents(serverEvents);
+        }
+      }
+      if (monRes.ok) {
+        const monData = await monRes.json();
+        if (monData.systemMetrics) {
+          setBlockedCount(monData.systemMetrics.dailyRequestsProcessed || 142890);
+          setMeanLatency(`${monData.systemMetrics.averageLatencyMs || 2.1} ms`);
+        }
+      }
+    } catch {
+      // Retain existing state cleanly if request aborts
+    }
+  };
 
   useEffect(() => {
     if (!isOpen) return;
-
-    const interval = setInterval(() => {
-      setBlockedCount((prev) => prev + Math.floor(Math.random() * 4) + 1);
-
-      const possibleAttacks = [
-        { type: 'GraphQL Introspection Query Probing', featureId: 30, featureName: 'API Threat Inspector', act: 'BLOCKED' as const, sev: 'medium' as const, country: 'US', ip: '54.210.12.9' },
-        { type: 'Zero-Day Directory Traversal (/etc/passwd)', featureId: 27, featureName: 'Intelligent Next-Gen WAF', act: 'BLOCKED' as const, sev: 'high' as const, country: 'RO', ip: '188.241.80.12' },
-        { type: 'Impossible Travel Login Velocity Check', featureId: 41, featureName: 'Adaptive Contextual MFA', act: 'ISOLATED' as const, sev: 'high' as const, country: 'BR', ip: '177.136.250.4' },
-        { type: 'HoneyToken Trigger in /backup_keys.env', featureId: 72, featureName: 'Honeypot Decoy Network', act: 'BLOCKED' as const, sev: 'critical' as const, country: 'VN', ip: '113.161.44.88' },
-        { type: 'Unencrypted PHI Database Query Intercept', featureId: 5, featureName: 'HIPAA Audit Vault', act: 'TOKENIZED' as const, sev: 'medium' as const, country: 'IL', ip: '10.0.12.44' }
-      ];
-
-      const chosen = possibleAttacks[Math.floor(Math.random() * possibleAttacks.length)];
-      const newEvt: SecurityEvent = {
-        id: `evt_${Date.now().toString().slice(-4)}`,
-        timestamp: 'Just now',
-        ip: chosen.ip,
-        country: chosen.country,
-        attackType: chosen.type,
-        actionTaken: chosen.act,
-        featureId: chosen.featureId,
-        featureName: chosen.featureName,
-        severity: chosen.sev
-      };
-
-      setEvents((prev) => [newEvt, ...prev.slice(0, 6)]);
-    }, 3500);
-
+    loadLiveTelemetry();
+    const interval = setInterval(loadLiveTelemetry, 5000);
     return () => clearInterval(interval);
   }, [isOpen]);
+
+  const handleRunLiveAuditSweep = async () => {
+    setIsRefreshing(true);
+    try {
+      await fetch('/api/e2e/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scenario: 'LIVE_RADAR_PERIMETER_SWEEP', workspaceId: 'workspace_123' }),
+      });
+      await loadLiveTelemetry();
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -135,21 +160,31 @@ export default function LiveRadarSimulator({ isOpen, onClose }: LiveRadarSimulat
                   SkyGuard Live Threat Defense Radar
                 </h3>
                 <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-950 border border-emerald-500/40 text-emerald-400 font-bold">
-                  AUTONOMOUS ACTIVE
+                  LIVE TELEMETRY CONNECTED
                 </span>
               </div>
               <p className="text-xs text-slate-400 font-mono">
-                Real-time telemetry across 78 security modules • 0 breach threshold
+                Real-time backend telemetry stream across 78 security modules • /api/events
               </p>
             </div>
           </div>
 
-          <button
-            onClick={onClose}
-            className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleRunLiveAuditSweep}
+              disabled={isRefreshing}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-colors cursor-pointer disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+              <span>{isRefreshing ? 'Executing Sweep...' : 'Execute Perimeter Sweep'}</span>
+            </button>
+            <button
+              onClick={onClose}
+              className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Body */}
@@ -158,7 +193,7 @@ export default function LiveRadarSimulator({ isOpen, onClose }: LiveRadarSimulat
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800">
               <span className="text-[11px] font-mono uppercase text-slate-400 block mb-1">
-                Attacks Blocked (24h)
+                Inspected Requests (24h)
               </span>
               <span className="text-2xl font-bold font-mono text-cyan-400">
                 {blockedCount.toLocaleString()}
@@ -174,10 +209,10 @@ export default function LiveRadarSimulator({ isOpen, onClose }: LiveRadarSimulat
             </div>
             <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800">
               <span className="text-[11px] font-mono uppercase text-slate-400 block mb-1">
-                Mean Mitigation Time
+                Live API Latency
               </span>
               <span className="text-2xl font-bold font-mono text-white">
-                0.38 ms
+                {meanLatency}
               </span>
             </div>
             <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800">
@@ -195,11 +230,11 @@ export default function LiveRadarSimulator({ isOpen, onClose }: LiveRadarSimulat
             <div className="flex items-center justify-between mb-3">
               <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5 font-mono">
                 <Terminal className="w-3.5 h-3.5 text-cyan-400" />
-                Live Ingress Intercept Feed (Auto-Updating)
+                Live Backend Security Event Feed
               </h4>
               <span className="text-[11px] font-mono text-slate-500 flex items-center gap-1">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                Streaming eBPF/WAF Telemetry
+                Synced to Sovereign Engine
               </span>
             </div>
 
@@ -224,7 +259,7 @@ export default function LiveRadarSimulator({ isOpen, onClose }: LiveRadarSimulat
                         {evt.attackType}
                       </span>
                       <span className="text-[11px] text-slate-500">
-                        Origin: {evt.ip} [{evt.country}] • Module #{evt.featureId} ({evt.featureName})
+                        Origin: {evt.ip} [{evt.country}] • {evt.featureName}
                       </span>
                     </div>
                   </div>

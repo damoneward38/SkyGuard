@@ -10,14 +10,13 @@ import {
   ExternalLink,
   Sparkles
 } from 'lucide-react';
-import { useSecurityData } from '../features/security/SecurityDataContext';
+import { initialFrameworks } from '../services/mockSecurityApi';
+import { skyguardApi } from '../services/skyguardApi';
 import { ComplianceFramework } from '../types';
 
 export default function ComplianceCenter() {
-  const { state, updateCollection } = useSecurityData();
-  const frameworks = state.complianceFrameworks;
-  const [selectedFrameworkId, setSelectedFrameworkId] = useState<string | null>(frameworks[0]?.id || null);
-  const selectedFramework = frameworks.find((framework) => framework.id === selectedFrameworkId) || frameworks[0];
+  const [frameworks, setFrameworks] = useState<ComplianceFramework[]>(initialFrameworks);
+  const [selectedFramework, setSelectedFramework] = useState<ComplianceFramework>(initialFrameworks[0]);
   const [searchQuery, setSearchQuery] = useState('');
   const [evidenceDownloaded, setEvidenceDownloaded] = useState(false);
 
@@ -28,26 +27,37 @@ export default function ComplianceCenter() {
       c.category.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleDownloadEvidencePack = () => {
-    setEvidenceDownloaded(true);
-    const reportData = {
-      framework: selectedFramework.name,
-      version: selectedFramework.version,
-      score: selectedFramework.overallScore,
-      auditTimestamp: new Date().toISOString(),
-      controls: selectedFramework.controls,
-      signature: 'sha256:sovereign_enclave_audit_certified_9941a',
-    };
+  const handleDownloadEvidencePack = async () => {
+    try {
+      const signed = await skyguardApi.signComplianceEvidence({
+        frameworkId: selectedFramework.id,
+        frameworkName: selectedFramework.name,
+        version: selectedFramework.version,
+        score: selectedFramework.overallScore,
+      });
 
-    const blob = new Blob([JSON.stringify(reportData, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `SkyGuard_Evidence_Audit_${selectedFramework.id}_2026.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+      setEvidenceDownloaded(true);
+      const reportData = {
+        framework: selectedFramework.name,
+        version: selectedFramework.version,
+        score: selectedFramework.overallScore,
+        auditTimestamp: signed.generatedAt,
+        controls: selectedFramework.controls,
+        signature: signed.signature,
+      };
 
-    setTimeout(() => setEvidenceDownloaded(false), 3000);
+      const blob = new Blob([JSON.stringify(reportData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `SkyGuard_Evidence_Audit_${selectedFramework.id}_2026.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      setTimeout(() => setEvidenceDownloaded(false), 3000);
+    } catch (err) {
+      console.error('Failed to sign compliance evidence:', err);
+    }
   };
 
   return (
@@ -83,7 +93,7 @@ export default function ComplianceCenter() {
           return (
             <button
               key={fw.id}
-              onClick={() => setSelectedFrameworkId(fw.id)}
+              onClick={() => setSelectedFramework(fw)}
               className={`p-5 rounded-2xl border text-left transition-all cursor-pointer shadow-sm ${
                 isSelected
                   ? 'bg-blue-50/50 border-blue-500 ring-1 ring-blue-500'

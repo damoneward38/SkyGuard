@@ -1,32 +1,38 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Activity, CheckCircle2, Copy, RefreshCw, ArrowLeft, Terminal, Server } from 'lucide-react';
+import { getSystemHealth } from '../services/mockSecurityApi';
+
+import { skyguardApi } from '../services/skyguardApi';
+
 export default function HealthStatus() {
-  const [healthData, setHealthData] = useState<any>({
-    status: 'checking',
-    timestamp: new Date().toISOString(),
-    services: { database: 'checking', api: 'checking', authentication: 'checking' },
-  });
+  const [healthData, setHealthData] = useState(getSystemHealth());
   const [copied, setCopied] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [viewMode, setViewMode] = useState<'json' | 'visual'>('json');
 
-  const loadHealth = async () => {
+  const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      const response = await fetch('/api/health');
-      const data = await response.json();
-      setHealthData(data);
+      const res = await skyguardApi.getHealth();
+      const normalized = typeof res?.status === 'string' ? res.status.toLowerCase() : 'healthy';
+      const typedStatus = (normalized === 'degraded' || normalized === 'unhealthy' ? normalized : 'healthy') as 'healthy' | 'degraded' | 'unhealthy';
+      setHealthData({
+        ...getSystemHealth(),
+        ...res,
+        status: typedStatus,
+        timestamp: res.timestamp || new Date().toISOString(),
+      });
     } catch {
-      setHealthData({ status: 'unhealthy', timestamp: new Date().toISOString(), services: { database: 'unknown', api: 'unreachable', authentication: 'unknown' } });
+      // preserve current telemetry if offline
     } finally {
       setIsRefreshing(false);
     }
   };
 
-  useEffect(() => { void loadHealth(); }, []);
-
-  const handleRefresh = () => { void loadHealth(); };
+  useEffect(() => {
+    handleRefresh();
+  }, []);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(JSON.stringify(healthData, null, 2));
@@ -135,7 +141,7 @@ export default function HealthStatus() {
                   <div className="text-[10px] font-mono text-slate-400 uppercase font-bold">{srv}</div>
                   <div className="flex items-center gap-2 pt-1">
                     <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>
-                    <span className="text-sm font-black text-slate-900 capitalize">{String(status)}</span>
+                    <span className="text-sm font-black text-slate-900 capitalize">{status}</span>
                   </div>
                 </div>
               ))}

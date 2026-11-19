@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { useWorkspace } from '../hooks/useWorkspace';
 import { useAuth } from '../hooks/useAuth';
+import { skyguardApi } from '../services/skyguardApi';
 import { WorkspaceNode, WorkspaceUser, AssetCategory, InventoryAsset } from '../types';
 
 export default function Workspaces() {
@@ -118,33 +119,32 @@ export default function Workspaces() {
     notify(`Added member ${added.name} to ${activeWorkspace.name}`);
   };
 
-  const handleAddAsset = (e: React.FormEvent) => {
+  const handleAddAsset = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newAssetName.trim() || !newAssetIdent.trim()) return;
 
-    const newAsset: InventoryAsset = {
-      id: `ast_${newAssetCategory.toLowerCase().substring(0, 3)}_${Math.floor(100 + Math.random() * 900)}`,
-      name: newAssetName.trim(),
-      category: newAssetCategory,
-      identifier: newAssetIdent.trim(),
-      parentApex: activeWorkspace.apexDomain,
-      status: 'healthy',
-      ipOrHost: 'Zero-Trust Shielded Host',
-      environment: activeWorkspace.environment,
-      monitoringActive: true,
-      compliancePassing: true,
-      securityScore: 100.0,
-      lastScan: 'Just now',
-      tags: ['Multi-Tenant Isolated', activeWorkspace.name],
-      vulnerabilitiesCount: 0,
-      wafShielded: true,
-    };
+    try {
+      const result = await skyguardApi.registerAsset({
+        name: newAssetName.trim(),
+        category: newAssetCategory,
+        identifier: newAssetIdent.trim(),
+        environment: activeWorkspace.environment,
+      });
 
-    addAssetToWorkspace(activeWorkspaceId, newAsset);
-    setShowAddAssetModal(false);
-    setNewAssetName('');
-    setNewAssetIdent('');
-    notify(`Registered asset [${newAsset.identifier}] in ${activeWorkspace.name}`);
+      const newAsset: InventoryAsset = {
+        ...result.asset,
+        parentApex: activeWorkspace.apexDomain,
+        tags: ['Multi-Tenant Isolated', activeWorkspace.name],
+      };
+
+      addAssetToWorkspace(activeWorkspaceId, newAsset);
+      setShowAddAssetModal(false);
+      setNewAssetName('');
+      setNewAssetIdent('');
+      notify(`Registered asset [${newAsset.identifier}] in ${activeWorkspace.name}`);
+    } catch (err: any) {
+      notify(err.message || 'Failed to register workspace asset.');
+    }
   };
 
   const handleResolveAlert = (alertId: string) => {

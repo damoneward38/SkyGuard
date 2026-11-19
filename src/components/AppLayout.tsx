@@ -51,6 +51,7 @@ export default function AppLayout() {
     { label: 'Audit & Reports', path: '/app/reports', icon: BarChart3 },
     { label: 'Active Sessions', path: '/app/sessions', icon: Server },
     { label: 'Integrations', path: '/app/integrations', icon: Plug },
+    { label: 'Billing & Checkout', path: '/app/checkout', icon: CreditCard, badge: 'Full Page', badgeColor: 'bg-emerald-100 text-emerald-700' },
   ];
 
   const handleLogout = () => {
@@ -207,6 +208,13 @@ export default function AppLayout() {
                       className="text-slate-600 hover:text-blue-600 font-medium py-1"
                     >
                       MFA &amp; Security Keys →
+                    </Link>
+                    <Link
+                      to="/app/checkout"
+                      onClick={() => setUserDropdownOpen(false)}
+                      className="text-emerald-700 hover:text-emerald-800 font-bold py-1"
+                    >
+                      Full Enterprise Checkout →
                     </Link>
                   </div>
 

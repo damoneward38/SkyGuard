@@ -13,12 +13,16 @@ export interface ErrorLogRecord {
 const STORAGE_KEY = 'skyguard_enclave_error_log';
 
 export function generateErrorId(): string {
-  const hexPart = Math.floor((1 + Math.random()) * 0x100000000)
-    .toString(16)
-    .substring(1)
-    .toUpperCase();
+  const bytes = new Uint8Array(2);
+  if (typeof window !== 'undefined' && window.crypto?.getRandomValues) {
+    window.crypto.getRandomValues(bytes);
+  } else {
+    bytes[0] = Date.now() & 0xff;
+    bytes[1] = (Date.now() >> 8) & 0xff;
+  }
+  const hexPart = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('').toUpperCase();
   const timeSlice = Date.now().toString(36).toUpperCase().slice(-4);
-  return `ERR-SEC-${timeSlice}-${hexPart.slice(0, 4)}`;
+  return `ERR-SEC-${timeSlice}-${hexPart}`;
 }
 
 export function logEnclaveError(error: Error, errorInfo?: { componentStack?: string | null }): ErrorLogRecord {

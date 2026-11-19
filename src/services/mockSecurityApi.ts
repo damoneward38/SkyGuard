@@ -9,7 +9,8 @@ import {
   SecurityFinding,
   ProtectedAsset,
   InventoryAsset,
-  EnclaveActivityEvent
+  EnclaveActivityEvent,
+  HealthCheckResponse
 } from '../types';
 
 export const initialSecurityFindings: SecurityFinding[] = [
@@ -480,7 +481,7 @@ export const initialAlerts: AlertIncident[] = [
   },
 ];
 
-export function getSystemHealth() {
+export function getSystemHealth(): HealthCheckResponse {
   return {
     status: 'healthy',
     timestamp: '2026-08-20T12:00:00Z',

@@ -4,24 +4,13 @@ import {
   Check, 
   ShieldCheck, 
   Sparkles, 
-  HelpCircle, 
   ArrowRight, 
-  CheckCircle2, 
-  Calculator, 
-  X,
-  Server,
-  Zap,
-  Lock
+  Calculator
 } from 'lucide-react';
 import { pricingTiers } from '../data/features';
-import { PricingTier } from '../types';
 
 export default function Pricing() {
   const [isAnnual, setIsAnnual] = useState(true);
-  const [selectedTrialTier, setSelectedTrialTier] = useState<PricingTier | null>(null);
-  const [trialEmail, setTrialEmail] = useState('');
-  const [trialSuccess, setTrialSuccess] = useState(false);
-  const [isProvisioning, setIsProvisioning] = useState(false);
 
   // ROI Calculator state
   const [employeeCount, setEmployeeCount] = useState(25);
@@ -36,23 +25,7 @@ export default function Pricing() {
     return { totalRisk, skyguardSavings };
   };
 
-  const { totalRisk, skyguardSavings } = calculateEstimatedRisk();
-
-  const handleStartTrial = (tier: PricingTier) => {
-    setSelectedTrialTier(tier);
-    setTrialSuccess(false);
-  };
-
-  const handleSubmitTrial = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!trialEmail) return;
-    setIsProvisioning(true);
-
-    setTimeout(() => {
-      setIsProvisioning(false);
-      setTrialSuccess(true);
-    }, 1200);
-  };
+  const { skyguardSavings } = calculateEstimatedRisk();
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 py-16 px-4 sm:px-6 lg:px-8 font-sans">
@@ -337,110 +310,6 @@ export default function Pricing() {
           </div>
         </div>
       </div>
-
-      {/* Trial Provisioning Modal */}
-      {selectedTrialTier && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="relative w-full max-w-md rounded-2xl bg-white border border-slate-200 p-6 shadow-2xl text-slate-900">
-            <button
-              onClick={() => setSelectedTrialTier(null)}
-              className="absolute top-4 right-4 p-1.5 rounded-lg bg-slate-100 text-slate-500 hover:text-slate-800"
-            >
-              <X className="w-4 h-4" />
-            </button>
-
-            {!trialSuccess ? (
-              <div>
-                <div className="flex items-center gap-2.5 mb-4">
-                  <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-blue-50 border border-blue-200 text-blue-600">
-                    <ShieldCheck className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-slate-900 font-sans">
-                      Start {selectedTrialTier.name} Free Trial
-                    </h3>
-                    <p className="text-xs text-slate-500 font-mono">
-                      Includes {selectedTrialTier.includedFeatureCount} modules • 14 days free
-                    </p>
-                  </div>
-                </div>
-
-                <form onSubmit={handleSubmitTrial} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Work Email Address
-                    </label>
-                    <input
-                      type="email"
-                      required
-                      placeholder="admin@company.com"
-                      value={trialEmail}
-                      onChange={(e) => setTrialEmail(e.target.value)}
-                      className="w-full px-3 py-2.5 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-900 focus:outline-none focus:border-blue-500"
-                    />
-                  </div>
-
-                  <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-xs font-mono text-slate-600 space-y-1">
-                    <div className="flex justify-between">
-                      <span>Selected Plan:</span>
-                      <span className="text-slate-900 font-bold">{selectedTrialTier.name}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Feature Scope:</span>
-                      <span className="text-blue-600">{selectedTrialTier.includedFeatureCount} Modules</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Trial Duration:</span>
-                      <span className="text-green-600 font-bold">14 Days (No CC required)</span>
-                    </div>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={isProvisioning}
-                    className="w-full py-3 rounded-lg font-bold text-xs text-white bg-blue-600 hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 shadow-md"
-                  >
-                    {isProvisioning ? (
-                      <>
-                        <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                        <span>Provisioning Secure Enclave...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Zap className="w-3.5 h-3.5 fill-current" />
-                        <span>Launch Sandbox Tenant</span>
-                      </>
-                    )}
-                  </button>
-                </form>
-              </div>
-            ) : (
-              <div className="text-center py-4 space-y-4">
-                <div className="w-12 h-12 rounded-full bg-green-50 border border-green-200 text-green-600 flex items-center justify-center mx-auto">
-                  <CheckCircle2 className="w-6 h-6" />
-                </div>
-                <h3 className="text-xl font-bold text-slate-900">
-                  Tenant Successfully Provisioned!
-                </h3>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  An encrypted activation link and tenant credentials have been dispatched to <span className="text-blue-600 font-semibold">{trialEmail}</span>.
-                </p>
-                <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-[11px] font-mono text-left text-slate-600 space-y-1">
-                  <div>• Tenant ID: <span className="text-slate-900 font-bold">tnt_sandbox_{Math.floor(Math.random()*89999 + 10000)}</span></div>
-                  <div>• Initialized Modules: <span className="text-green-600 font-bold">{selectedTrialTier.includedFeatureCount}/78 Active</span></div>
-                  <div>• Status: <span className="text-blue-600 font-bold">Ready for Login</span></div>
-                </div>
-                <button
-                  onClick={() => setSelectedTrialTier(null)}
-                  className="w-full py-2.5 rounded-lg bg-slate-900 text-xs font-semibold text-white hover:bg-slate-800"
-                >
-                  Done
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

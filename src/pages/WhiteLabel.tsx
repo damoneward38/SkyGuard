@@ -32,6 +32,7 @@ import {
   Image as ImageIcon
 } from 'lucide-react';
 import { whiteLabelInfo } from '../data/features';
+import { skyguardApi } from '../services/skyguardApi';
 import { WhiteLabelSettings } from '../types';
 
 export const DEFAULT_WHITE_LABEL_SETTINGS: WhiteLabelSettings = {
@@ -118,16 +119,26 @@ export default function WhiteLabel() {
     localStorage.setItem('skyguard_whitelabel_settings', JSON.stringify(settings));
   }, [settings]);
 
-  const handleSaveSettings = () => {
+  const handleSaveSettings = async () => {
     localStorage.setItem('skyguard_whitelabel_settings', JSON.stringify(settings));
-    setSavedSuccess(true);
-    setTimeout(() => setSavedSuccess(false), 3000);
+    try {
+      await skyguardApi.saveWhiteLabelConfig(settings);
+      setSavedSuccess(true);
+      setTimeout(() => setSavedSuccess(false), 3000);
+    } catch (err) {
+      console.error('Failed to persist white-label config to backend:', err);
+    }
   };
 
-  const handleResetDefaults = () => {
+  const handleResetDefaults = async () => {
     setSettings(DEFAULT_WHITE_LABEL_SETTINGS);
-    setSavedSuccess(true);
-    setTimeout(() => setSavedSuccess(false), 3000);
+    try {
+      await skyguardApi.saveWhiteLabelConfig(DEFAULT_WHITE_LABEL_SETTINGS);
+      setSavedSuccess(true);
+      setTimeout(() => setSavedSuccess(false), 3000);
+    } catch (err) {
+      console.error('Failed to reset white-label config:', err);
+    }
   };
 
   const handleCopy = (text: string, key: string) => {
@@ -142,29 +153,35 @@ export default function WhiteLabel() {
     );
   };
 
-  const handleFormSubmit = (e: React.FormEvent) => {
+  const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !email) return;
 
     setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
-      setSubmittedProposal({
-        proposalId: `PROP-WL-${Math.floor(100000 + Math.random() * 900000)}`,
+    try {
+      const addonNames = selectedAddons
+        .map((id) => whiteLabelInfo.addons.find((a) => a.id === id)?.name)
+        .filter((x): x is string => Boolean(x));
+
+      const result = await skyguardApi.submitWhiteLabelProposal({
         name,
         email,
         company: company || settings.companyName,
-        tier: selectedTier === 'base' ? 'Base White‑Label License ($3M–$5M)' : 'Enterprise Sovereign License ($15M–$25M)',
-        addons: selectedAddons.map(id => whiteLabelInfo.addons.find(a => a.id === id)?.name).filter(Boolean),
-        brandPreview: { 
-          brandName: settings.companyName, 
+        tier: selectedTier,
+        addons: addonNames,
+        notes,
+        brandPreview: {
+          brandName: settings.companyName,
           customDomain: settings.customDomain,
-          primaryColor: settings.primaryColor
+          primaryColor: settings.primaryColor,
         },
-        timestamp: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
-        sla: '5-Year 99.999% Guaranteed SLA with Dedicated Level-3 Cyber Response Team'
       });
-    }, 800);
+      setSubmittedProposal(result.proposal);
+    } catch (err) {
+      console.error('White-label proposal submission failed:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const treeNodes = [

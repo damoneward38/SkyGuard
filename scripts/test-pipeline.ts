@@ -269,6 +269,72 @@ assertTest('skyguardApi typed pipeline is wired across Centers with zero Math.ra
   }
 });
 
+// 11. Verify Disk Persistence, Bearer Session Security, and Cross-Screen Vault Digestion
+assertTest('Disk persistence, bearer session validation, and cross-screen vault digestion are wired', () => {
+  const serverCode = fs.readFileSync('server.ts', 'utf-8');
+  const vaultCode = fs.readFileSync('src/pages/SecureVault.tsx', 'utf-8');
+  const dashboardCode = fs.readFileSync('src/pages/Dashboard.tsx', 'utf-8');
+  const alertsCode = fs.readFileSync('src/pages/Alerts.tsx', 'utf-8');
+  const assetsCode = fs.readFileSync('src/pages/Assets.tsx', 'utf-8');
+
+  if (!serverCode.includes('SECURITY_STATE_FILE') || !serverCode.includes('VAULT_UPLOAD_DIR') || !serverCode.includes('digestVaultItemIntoScreens') || !serverCode.includes('persistSecurityState')) {
+    throw new Error('server.ts missing disk persistence or cross-screen vault digestion');
+  }
+  if (!serverCode.includes('/api/auth/session') || !serverCode.includes('/api/vault/items/:id/download')) {
+    throw new Error('server.ts missing /api/auth/session or /api/vault/items/:id/download');
+  }
+  if (!vaultCode.includes('skyguardApi') || !vaultCode.includes('refreshSecurityData()') || !vaultCode.includes('downloadVaultItem')) {
+    throw new Error('SecureVault.tsx missing skyguardApi wiring, download handler, or SecurityDataContext refresh');
+  }
+  if (!dashboardCode.includes('useSecurityData') || dashboardCode.includes('score: 87') || dashboardCode.includes("value: '87'")) {
+    throw new Error('Dashboard.tsx must derive live metrics from useSecurityData');
+  }
+  if (!alertsCode.includes('useSecurityData')) {
+    throw new Error('Alerts.tsx must use shared SecurityDataContext');
+  }
+  if (assetsCode.includes('Math.random')) {
+    throw new Error('Assets.tsx still contains Math.random simulation logic');
+  }
+});
+
+// 12. Verify Business Protection Intelligence, Server-Side Gemini SDK, Gmail OAuth & Multer Ingestion
+assertTest('SkyGuard Business Protection Intelligence, server-side Gemini AI, Gmail OAuth, and /api/skyguard/* routes are wired', () => {
+  const serverCode = fs.readFileSync('server.ts', 'utf-8');
+  const appCode = fs.readFileSync('src/App.tsx', 'utf-8');
+  const layoutCode = fs.readFileSync('src/components/AppLayout.tsx', 'utf-8');
+  const intelCode = fs.readFileSync('src/pages/SkyGuardIntelligence.tsx', 'utf-8');
+  const gmailCode = fs.readFileSync('src/services/googleWorkspaceAuth.ts', 'utf-8');
+
+  const expectedSkyguardRoutes = [
+    '/api/skyguard/health',
+    '/api/skyguard/integrations',
+    '/api/skyguard/security/findings',
+    '/api/skyguard/assistant/chat',
+    '/api/skyguard/files/analyze',
+    '/api/skyguard/email/sync-gmail',
+    '/api/skyguard/email/analyze',
+    '/api/skyguard/application/inventory',
+    '/api/skyguard/pipelines',
+  ];
+  for (const route of expectedSkyguardRoutes) {
+    if (!serverCode.includes(route)) {
+      throw new Error(`server.ts missing route: ${route}`);
+    }
+  }
+  if (!serverCode.includes('@google/genai') || !serverCode.includes('gemini-4-hydrogen') || !serverCode.includes('multer')) {
+    throw new Error('server.ts missing @google/genai, gemini-4-hydrogen, or multer integration');
+  }
+  if (intelCode.includes("from '@google/genai'") || intelCode.includes('from "@google/genai"') || intelCode.includes('process.env.GEMINI_API_KEY') || intelCode.includes('window.alert(')) {
+    throw new Error('SkyGuardIntelligence.tsx must never import @google/genai, reference process.env.GEMINI_API_KEY, or call window.alert');
+  }
+  if (!appCode.includes('path="command"') || !appCode.includes('path="intelligence"') || !layoutCode.includes('/app/command')) {
+    throw new Error('SkyGuardIntelligence routes or sidebar navigation link missing');
+  }
+  if (!gmailCode.includes('https://www.googleapis.com/auth/gmail.readonly') || gmailCode.includes('localStorage.setItem') || gmailCode.includes('sessionStorage.setItem')) {
+    throw new Error('googleWorkspaceAuth.ts must scope gmail.readonly and keep Google OAuth tokens strictly in memory');
+  }
+});
+
 console.log(`\n========================================`);
 console.log(`Pipeline Summary: ${passCount}/${totalCount} tests passed.`);
 console.log(`========================================\n`);

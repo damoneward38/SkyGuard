@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../auth/AuthContext';
+import { authFetch, clearAuthToken, getAuthToken } from '../../services/skyguardApi';
 import {
   initialSecurityFindings,
   initialProtectedAssets,
@@ -26,6 +27,7 @@ import {
   IntegrationConnector,
   InventoryAsset,
   EnclaveActivityEvent,
+  VaultItem,
 } from '../../types';
 
 export interface SecurityState {
@@ -41,6 +43,7 @@ export interface SecurityState {
   inventoryAssets: InventoryAsset[];
   enclaveActivityEvents: EnclaveActivityEvent[];
   securityEvents: typeof mockSecurityEvents;
+  vaultItems: VaultItem[];
 }
 
 export type SecurityCollectionKey = keyof SecurityState;
@@ -68,17 +71,10 @@ const seedState: SecurityState = {
   inventoryAssets: initialInventoryAssets,
   enclaveActivityEvents: initialEnclaveActivityEvents,
   securityEvents: mockSecurityEvents,
+  vaultItems: [],
 };
 
 const SecurityDataContext = createContext<SecurityDataContextType | undefined>(undefined);
-
-function authHeaders(): HeadersInit {
-  const token = sessionStorage.getItem('skyguard_auth_token');
-  return {
-    'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
-}
 
 export const SecurityDataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
@@ -93,11 +89,15 @@ export const SecurityDataProvider: React.FC<{ children: React.ReactNode }> = ({ 
   }, []);
 
   const refresh = useCallback(async () => {
-    if (!sessionStorage.getItem('skyguard_auth_token')) return;
+    if (!getAuthToken()) return;
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch('/api/security/state', { headers: authHeaders() });
+      const response = await authFetch('/api/security/state');
+      if (response.status === 401) {
+        clearAuthToken();
+        throw new Error('Session expired — please sign in again.');
+      }
       if (!response.ok) throw new Error(`Security state request failed (${response.status})`);
       const payload = await response.json();
       if (!payload?.state) throw new Error('Security state response was empty');
@@ -116,14 +116,18 @@ export const SecurityDataProvider: React.FC<{ children: React.ReactNode }> = ({ 
   }, [setCurrentState]);
 
   useEffect(() => {
-    if (!isAuthLoading && isAuthenticated) void refresh();
-  }, [isAuthLoading, isAuthenticated, refresh]);
+    if (!isAuthLoading && isAuthenticated && getAuthToken()) {
+      void refresh();
+    } else if (!isAuthLoading && !isAuthenticated) {
+      setCurrentState(seedState);
+    }
+  }, [isAuthLoading, isAuthenticated, refresh, setCurrentState]);
 
   const persistCollection = useCallback(async <K extends SecurityCollectionKey>(key: K, items: SecurityState[K]) => {
+    if (!getAuthToken()) return;
     try {
-      const response = await fetch(`/api/security/${key}`, {
+      const response = await authFetch(`/api/security/${key}`, {
         method: 'PUT',
-        headers: authHeaders(),
         body: JSON.stringify(items),
       });
       if (!response.ok) throw new Error(`Saving ${key} failed (${response.status})`);

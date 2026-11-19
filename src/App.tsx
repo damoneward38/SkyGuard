@@ -42,6 +42,7 @@ import AutomationCenter from './pages/AutomationCenter';
 import PlatformCenter from './pages/PlatformCenter';
 import OperationsConsole from './pages/OperationsConsole';
 import SecureVault from './pages/SecureVault';
+import SkyGuardIntelligence from './pages/SkyGuardIntelligence';
 
 function PublicLayout({ onOpenRadar }: { onOpenRadar: () => void }) {
   return (
@@ -111,6 +112,8 @@ export default function App() {
               >
                 <Route index element={<Navigate to="/app/dashboard" replace />} />
                 <Route path="dashboard" element={<Dashboard />} />
+                <Route path="command" element={<SkyGuardIntelligence />} />
+                <Route path="intelligence" element={<SkyGuardIntelligence />} />
                 <Route path="vault" element={<SecureVault />} />
                 <Route path="workspaces" element={<Workspaces />} />
                 <Route path="assets" element={<Assets />} />
@@ -158,6 +161,8 @@ export default function App() {
               </Route>
 
               {/* Dashboard URL Aliases & Deep Links */}
+              <Route path="/command" element={<Navigate to="/app/command" replace />} />
+              <Route path="/intelligence" element={<Navigate to="/app/intelligence" replace />} />
               <Route path="/vault" element={<Navigate to="/app/vault" replace />} />
               <Route path="/upload" element={<Navigate to="/app/vault" replace />} />
               <Route path="/dashboard/vault" element={<Navigate to="/app/vault" replace />} />

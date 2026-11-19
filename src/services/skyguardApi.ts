@@ -2,21 +2,50 @@ import {
   AlertIncident,
   InventoryAsset,
   SecurityApiKey,
-  SecurityFinding,
   WafRule,
   AuditLogRecord,
+  VaultItem,
+  VaultItemType,
+  VaultDigestSummary,
 } from '../types';
 
-async function apiRequest<T>(url: string, options?: RequestInit): Promise<T> {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('skyguard_auth_token') : null;
-  const res = await fetch(url, {
+const AUTH_TOKEN_KEY = 'skyguard_auth_token';
+
+export function getAuthToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem(AUTH_TOKEN_KEY) || sessionStorage.getItem(AUTH_TOKEN_KEY);
+}
+
+export function setAuthToken(token: string): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(AUTH_TOKEN_KEY, token);
+  sessionStorage.setItem(AUTH_TOKEN_KEY, token);
+}
+
+export function clearAuthToken(): void {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem(AUTH_TOKEN_KEY);
+  sessionStorage.removeItem(AUTH_TOKEN_KEY);
+}
+
+export function getAuthHeaders(extraHeaders?: HeadersInit): HeadersInit {
+  const token = getAuthToken();
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(extraHeaders || {}),
+  };
+}
+
+export function authFetch(url: string, options?: RequestInit): Promise<Response> {
+  return fetch(url, {
     ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(options?.headers || {}),
-    },
+    headers: getAuthHeaders(options?.headers),
   });
+}
+
+async function apiRequest<T>(url: string, options?: RequestInit): Promise<T> {
+  const res = await authFetch(url, options);
   const data = await res.json();
   if (!res.ok) {
     throw new Error(data.error || `API request failed (${res.status})`);
@@ -25,6 +54,76 @@ async function apiRequest<T>(url: string, options?: RequestInit): Promise<T> {
 }
 
 export const skyguardApi = {
+  // Vault & File/Email Ingestion
+  getVaultItems: () =>
+    apiRequest<{
+      success: boolean;
+      count: number;
+      items: VaultItem[];
+      totalProtected: number;
+      quarantinedCount: number;
+    }>('/api/vault/items'),
+
+  uploadVaultItem: (payload: {
+    title?: string;
+    type?: VaultItemType;
+    content?: string;
+    fileBase64?: string;
+    fileName?: string;
+    fileSize?: string;
+    mimeType?: string;
+    workspaceId?: string;
+    uploadedBy?: string;
+    monitoredChannels?: string[];
+  }) =>
+    apiRequest<{
+      success: boolean;
+      message: string;
+      item: VaultItem;
+      digestSummary: VaultDigestSummary;
+    }>('/api/vault/upload', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  rescanVaultItem: (id: string) =>
+    apiRequest<{
+      success: boolean;
+      message: string;
+      item: VaultItem;
+      digestSummary?: VaultDigestSummary;
+    }>(`/api/vault/scan/${encodeURIComponent(id)}`, {
+      method: 'POST',
+    }),
+
+  shredVaultItem: (id: string) =>
+    apiRequest<{
+      success: boolean;
+      message: string;
+      removedId: string;
+    }>(`/api/vault/items/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    }),
+
+  downloadVaultItem: async (id: string, fallbackFileName: string) => {
+    const token = getAuthToken();
+    const res = await fetch(`/api/vault/items/${encodeURIComponent(id)}/download`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) {
+      throw new Error(`Failed to download saved vault payload (${res.status})`);
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fallbackFileName || `${id}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  },
+
   // Platform API Keys
   createApiKey: (payload: { name: string; role: SecurityApiKey['role'] }) =>
     apiRequest<{ success: boolean; key: SecurityApiKey; rawSecret: string }>('/api/platform/apikeys', {
@@ -170,6 +269,17 @@ export const skyguardApi = {
       }
     ),
 
+  executeCryptoShred: (keyId: string) =>
+    apiRequest<{
+      success: boolean;
+      certificateId: string;
+      sha256Proof: string;
+      message: string;
+    }>('/api/privacy/shred', {
+      method: 'POST',
+      body: JSON.stringify({ keyId }),
+    }),
+
   registerWebhookConnector: (payload: { name: string; url: string }) =>
     apiRequest<{ success: boolean; connector: any }>('/api/integrations/webhooks', {
       method: 'POST',
@@ -181,4 +291,3 @@ export const skyguardApi = {
       method: 'GET',
     }),
 };
-

@@ -8,7 +8,7 @@ import {
   AlertIncident 
 } from '../../types';
 import { initialInventoryAssets, initialAlerts } from '../../services/mockSecurityApi';
-import { skyguardApi } from '../../services/skyguardApi';
+import { skyguardApi, authFetch } from '../../services/skyguardApi';
 
 function generateSecureHex(bytes = 3): string {
   const arr = new Uint8Array(bytes);
@@ -561,7 +561,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       })
     );
 
-    fetch(`/api/workspaces/${encodeURIComponent(workspaceId)}/users`, {
+    authFetch(`/api/workspaces/${encodeURIComponent(workspaceId)}/users`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: newUser.name, email: newUser.email, role: newUser.role }),
@@ -620,7 +620,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       })
     );
 
-    fetch(`/api/workspaces/${encodeURIComponent(workspaceId)}/reports`, {
+    authFetch(`/api/workspaces/${encodeURIComponent(workspaceId)}/reports`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title: newReport.title, type: newReport.type, securityScore: newReport.securityScore }),

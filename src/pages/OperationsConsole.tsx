@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { useWorkspace } from '../hooks/useWorkspace';
 import { useAuth } from '../hooks/useAuth';
+import { authFetch } from '../services/skyguardApi';
 
 export default function OperationsConsole() {
   const { activeWorkspace, logAuditEvent } = useWorkspace();
@@ -44,7 +45,7 @@ export default function OperationsConsole() {
   const runButtonAudit = async () => {
     setIsAuditingButtons(true);
     try {
-      const res = await fetch('/api/audit/button-audit', { method: 'POST' });
+      const res = await authFetch('/api/audit/button-audit', { method: 'POST' });
       const data = await res.json();
       if (data.success) {
         setButtonAuditReport(data);
@@ -81,7 +82,7 @@ export default function OperationsConsole() {
     setE2eResult(null);
 
     try {
-      const response = await fetch('/api/e2e/execute', {
+      const response = await authFetch('/api/e2e/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -128,7 +129,7 @@ export default function OperationsConsole() {
   const runLoadTest = async () => {
     setIsRunningLoadTest(true);
     try {
-      const res = await fetch('/api/performance/load-test', {
+      const res = await authFetch('/api/performance/load-test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -164,7 +165,7 @@ export default function OperationsConsole() {
   const runSecurityScan = async () => {
     setIsScanningSecurity(true);
     try {
-      const res = await fetch('/api/security/audit-scan');
+      const res = await authFetch('/api/security/audit-scan');
       const data = await res.json();
       if (data.success) {
         setSecurityScan(data);
@@ -206,7 +207,7 @@ export default function OperationsConsole() {
 
   const fetchMonitoring = async () => {
     try {
-      const res = await fetch('/api/monitoring/status');
+      const res = await authFetch('/api/monitoring/status');
       const data = await res.json();
       if (data.success) {
         setMonStatus(data);
@@ -229,7 +230,7 @@ export default function OperationsConsole() {
     e.preventDefault();
     setIsSavingThresholds(true);
     try {
-      const res = await fetch('/api/monitoring/thresholds', {
+      const res = await authFetch('/api/monitoring/thresholds', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(thresholds),

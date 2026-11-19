@@ -1,40 +1,30 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { 
-  ShieldCheck, 
-  Activity, 
-  AlertTriangle, 
-  Lock, 
-  FileCheck2, 
-  Zap, 
-  ArrowUpRight, 
-  Server, 
-  Globe, 
-  RefreshCw, 
+import {
+  ShieldCheck,
+  Activity,
+  AlertTriangle,
+  Lock,
+  FileCheck2,
+  ArrowUpRight,
+  Server,
+  RefreshCw,
   CheckCircle2,
-  Filter,
-  Flame,
-  KeyRound,
   Download,
   ArrowDown,
   ArrowRight,
-  Shield,
-  Layers,
   Terminal,
-  ExternalLink,
-  ChevronRight,
-  SlidersHorizontal,
-  Upload
+  Upload,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { featureSetsMeta } from '../data/features';
 import { useSecurityData } from '../features/security/SecurityDataContext';
+import { authFetch } from '../services/skyguardApi';
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const { state, updateCollection } = useSecurityData();
+  const { state } = useSecurityData();
   const events = state.securityEvents;
-  const setEvents = (updater: typeof state.securityEvents | ((previous: typeof state.securityEvents) => typeof state.securityEvents)) => updateCollection('securityEvents', updater);
   const [isScanning, setIsScanning] = useState(false);
   const [scanCompletedMsg, setScanCompletedMsg] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'visual' | 'ascii'>('visual');
@@ -43,7 +33,7 @@ export default function Dashboard() {
     setIsScanning(true);
     setScanCompletedMsg(null);
     try {
-      const res = await fetch('/api/security/audit-scan');
+      const res = await authFetch('/api/security/audit-scan');
       const data = await res.json();
       setScanCompletedMsg(
         `Zero-Trust Mesh & 78 Modules Audit: ${data.status || 'PASSED'} (Live Score: ${data.overallScore ?? 100}/100 • ${data.passedChecks ?? 5}/${data.totalChecks ?? 5} Checks Passed • HMAC ${data.auditSignature?.slice(0, 12) || 'VERIFIED'})`
@@ -55,16 +45,30 @@ export default function Dashboard() {
     }
   };
 
-  // Dashboard Core Metrics (derived from the server-owned security state)
+  // Dashboard Core Metrics derived dynamically from server-owned security state
   const openFindings = state.findings.filter((finding) => finding.status !== 'resolved');
   const securityScore = Math.max(0, 100 - openFindings.reduce((total, finding) => total + finding.scoreImpact, 0));
-  const activeAlertsCount = state.alerts.filter((alert) => alert.status === 'new' || alert.status === 'open' || alert.status === 'investigating').length;
-  const protectedAssetsCount = state.inventoryAssets.length;
+  const activeAlertsCount = state.alerts.filter(
+    (alert) => alert.status === 'new' || alert.status === 'open' || alert.status === 'investigating'
+  ).length;
+  const protectedAssetsCount = state.protectedAssets.length || state.inventoryAssets.length;
   const complianceStatusPercent = state.complianceFrameworks.length
-    ? Math.round(state.complianceFrameworks.reduce((total, framework) => total + framework.overallScore, 0) / state.complianceFrameworks.length)
+    ? Math.round(
+        state.complianceFrameworks.reduce((total, framework) => total + framework.overallScore, 0) /
+          state.complianceFrameworks.length
+      )
     : 0;
-  const privacyRequestsCount = state.dsarRequests.filter((request) => request.status !== 'completed' && request.status !== 'rejected').length;
+  const passedControls = state.complianceFrameworks.reduce((total, fw) => total + fw.passedControls, 0);
+  const totalControls = state.complianceFrameworks.reduce((total, fw) => total + fw.totalControls, 0);
+  const privacyRequestsCount = state.dsarRequests.filter(
+    (request) => request.status !== 'completed' && request.status !== 'rejected'
+  ).length;
+  const vaultItemsCount = state.vaultItems.length;
+  const quarantinedVaultCount = state.vaultItems.filter((v) => v.monitoringStatus === 'QUARANTINED').length;
   const latestAlert = state.alerts[0];
+  const scoreGrade = securityScore >= 90 ? 'GRADE A+' : securityScore >= 80 ? 'GRADE A' : securityScore >= 70 ? 'GRADE B' : 'ACTION REQ';
+
+  const padMetric = (val: string | number, width = 10) => String(val).padStart(width, ' ');
 
   return (
     <div className="space-y-6 font-sans">
@@ -89,7 +93,7 @@ export default function Dashboard() {
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-colors cursor-pointer shadow-sm"
           >
             <Upload className="w-3.5 h-3.5" />
-            <span>Upload &amp; Secure Info</span>
+            <span>Upload &amp; Secure Info ({vaultItemsCount})</span>
           </Link>
 
           <button
@@ -118,11 +122,8 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* ─────────────────────────────────────────────────────────── */}
-      {/* PRIMARY CENTERPIECE: SKYGUARD DASHBOARD CARD & DRILL-DOWNS */}
-      {/* ─────────────────────────────────────────────────────────── */}
+      {/* SKYGUARD DASHBOARD POSTURE MATRIX */}
       <div className="bg-slate-950 text-slate-100 rounded-2xl border border-slate-800 shadow-xl overflow-hidden">
-        {/* Header Bar */}
         <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/60">
           <div className="flex items-center gap-3">
             <div className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse"></div>
@@ -130,7 +131,7 @@ export default function Dashboard() {
               SKYGUARD DASHBOARD
             </div>
             <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-400 font-mono text-[10px]">
-              POSTURE MATRIX v4.2
+              POSTURE MATRIX v4.8
             </span>
           </div>
 
@@ -152,36 +153,21 @@ export default function Dashboard() {
 {`┌───────────────────────────────────────────┐
 │             SKYGUARD DASHBOARD            │
 ├───────────────────────────────────────────┤
-│                                           │
-│ Security Score              87 / 100      │
-│                                           │
-│ Active Alerts                     3       │
-│                                           │
-│ Protected Assets                 24       │
-│                                           │
-│ Compliance Status             92%         │
-│                                           │
-│ Privacy Requests                 5        │
-│                                           │
+│ Security Score             ${padMetric(`${securityScore} / 100`, 10)}     │
+│ Active Alerts              ${padMetric(activeAlertsCount, 10)}     │
+│ Protected Assets           ${padMetric(protectedAssetsCount, 10)}     │
+│ Compliance Status          ${padMetric(`${complianceStatusPercent}%`, 10)}     │
+│ Privacy Requests           ${padMetric(privacyRequestsCount, 10)}     │
+│ Vault Digested Files       ${padMetric(vaultItemsCount, 10)}     │
 └───────────────────────────────────────────┘
-Security Score
-      ↓
-Security Findings  (/app/security?tab=findings)
-
-Active Alerts
-      ↓
-Alert Center       (/app/alerts)
-
-Compliance
-      ↓
-Compliance Controls(/app/compliance)
-
-Privacy Requests
-      ↓
-Privacy Center     (/app/privacy)`}
+Security Score (${securityScore}) -> Security Findings (/app/security?tab=findings)
+Active Alerts (${activeAlertsCount})   -> Alert Center (/app/alerts)
+Compliance (${complianceStatusPercent}%)    -> Compliance Controls (/app/compliance)
+Privacy (${privacyRequestsCount})        -> Privacy Center (/app/privacy)
+Vault Files (${vaultItemsCount})     -> Secure Vault (/app/vault)`}
             </pre>
             <div className="pt-2 flex items-center gap-3">
-              <button 
+              <button
                 onClick={() => setViewMode('visual')}
                 className="text-xs text-blue-400 underline font-bold cursor-pointer"
               >
@@ -194,10 +180,8 @@ Privacy Center     (/app/privacy)`}
         {/* Visual Interactive Dashboard Mode */}
         {viewMode === 'visual' && (
           <div className="p-6 space-y-6">
-            {/* The 5 Key Telemetry Row Items with Direct Drill-Down Routes */}
             <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-              
-              {/* Row Item 1: Security Score -> Security Findings */}
+              {/* Row Item 1: Security Score */}
               <Link
                 to="/app/security?tab=findings"
                 className="group p-4 rounded-xl bg-slate-900 hover:bg-slate-850 border border-slate-800 hover:border-blue-500 transition-all flex flex-col justify-between"
@@ -205,23 +189,21 @@ Privacy Center     (/app/privacy)`}
                 <div className="flex items-center justify-between text-slate-400 text-xs font-semibold mb-2">
                   <span>Security Score</span>
                   <span className="p-1 rounded bg-blue-950 text-blue-400 text-[10px] font-mono font-bold">
-                    GRADE A
+                    {scoreGrade}
                   </span>
                 </div>
                 <div className="flex items-baseline justify-between">
                   <div className="text-3xl font-black font-mono text-white tracking-tight">
-                    87 <span className="text-sm font-sans text-slate-400">/ 100</span>
+                    {securityScore} <span className="text-sm font-sans text-slate-400">/ 100</span>
                   </div>
                 </div>
                 <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-blue-400 group-hover:text-blue-300 font-medium">
-                  <span className="flex items-center gap-1">
-                    <span>Security Findings</span>
-                  </span>
+                  <span>Security Findings ({openFindings.length})</span>
                   <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
                 </div>
               </Link>
 
-              {/* Row Item 2: Active Alerts -> Alert Center */}
+              {/* Row Item 2: Active Alerts */}
               <Link
                 to="/app/alerts"
                 className="group p-4 rounded-xl bg-slate-900 hover:bg-slate-850 border border-slate-800 hover:border-rose-500 transition-all flex flex-col justify-between"
@@ -229,23 +211,21 @@ Privacy Center     (/app/privacy)`}
                 <div className="flex items-center justify-between text-slate-400 text-xs font-semibold mb-2">
                   <span>Active Alerts</span>
                   <span className="p-1 rounded bg-rose-950 text-rose-400 text-[10px] font-mono font-bold">
-                    P1 ACTION
+                    {activeAlertsCount > 0 ? 'P1 ACTION' : 'CLEAR'}
                   </span>
                 </div>
                 <div className="flex items-baseline justify-between">
                   <div className="text-3xl font-black font-mono text-rose-400 tracking-tight">
-                    3
+                    {activeAlertsCount}
                   </div>
                 </div>
                 <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-rose-400 group-hover:text-rose-300 font-medium">
-                  <span className="flex items-center gap-1">
-                    <span>Alert Center</span>
-                  </span>
+                  <span>Alert Center</span>
                   <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
                 </div>
               </Link>
 
-              {/* Row Item 3: Protected Assets -> Protected Assets Registry */}
+              {/* Row Item 3: Protected Assets */}
               <Link
                 to="/app/security?tab=assets"
                 className="group p-4 rounded-xl bg-slate-900 hover:bg-slate-850 border border-slate-800 hover:border-emerald-500 transition-all flex flex-col justify-between"
@@ -258,18 +238,16 @@ Privacy Center     (/app/privacy)`}
                 </div>
                 <div className="flex items-baseline justify-between">
                   <div className="text-3xl font-black font-mono text-emerald-400 tracking-tight">
-                    24
+                    {protectedAssetsCount}
                   </div>
                 </div>
                 <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-emerald-400 group-hover:text-emerald-300 font-medium">
-                  <span className="flex items-center gap-1">
-                    <span>Asset Registry</span>
-                  </span>
+                  <span>Asset Registry</span>
                   <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
                 </div>
               </Link>
 
-              {/* Row Item 4: Compliance Status -> Compliance Controls */}
+              {/* Row Item 4: Compliance Status */}
               <Link
                 to="/app/compliance"
                 className="group p-4 rounded-xl bg-slate-900 hover:bg-slate-850 border border-slate-800 hover:border-cyan-500 transition-all flex flex-col justify-between"
@@ -277,23 +255,21 @@ Privacy Center     (/app/privacy)`}
                 <div className="flex items-center justify-between text-slate-400 text-xs font-semibold mb-2">
                   <span>Compliance Status</span>
                   <span className="p-1 rounded bg-cyan-950 text-cyan-400 text-[10px] font-mono font-bold">
-                    138 / 150
+                    {passedControls} / {totalControls}
                   </span>
                 </div>
                 <div className="flex items-baseline justify-between">
                   <div className="text-3xl font-black font-mono text-cyan-400 tracking-tight">
-                    92<span className="text-sm font-sans text-slate-400">%</span>
+                    {complianceStatusPercent}<span className="text-sm font-sans text-slate-400">%</span>
                   </div>
                 </div>
                 <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-cyan-400 group-hover:text-cyan-300 font-medium">
-                  <span className="flex items-center gap-1">
-                    <span>Compliance Controls</span>
-                  </span>
+                  <span>Compliance Controls</span>
                   <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
                 </div>
               </Link>
 
-              {/* Row Item 5: Privacy Requests -> Privacy Center */}
+              {/* Row Item 5: Privacy Requests */}
               <Link
                 to="/app/privacy"
                 className="group p-4 rounded-xl bg-slate-900 hover:bg-slate-850 border border-slate-800 hover:border-purple-500 transition-all flex flex-col justify-between"
@@ -306,49 +282,46 @@ Privacy Center     (/app/privacy)`}
                 </div>
                 <div className="flex items-baseline justify-between">
                   <div className="text-3xl font-black font-mono text-purple-400 tracking-tight">
-                    5
+                    {privacyRequestsCount}
                   </div>
                 </div>
                 <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-purple-400 group-hover:text-purple-300 font-medium">
-                  <span className="flex items-center gap-1">
-                    <span>Privacy Center</span>
-                  </span>
+                  <span>Privacy Center</span>
                   <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
                 </div>
               </Link>
-
             </div>
 
             {/* Architecture Drill-Down Workflow Guide */}
             <div className="p-4 rounded-xl bg-slate-900/90 border border-slate-800 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 text-xs font-mono">
               <div className="flex items-center gap-2 text-slate-300">
                 <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-                <span className="text-slate-400">Drill-down Navigation Mapping:</span>
+                <span className="text-slate-400">Live Drill-Down Navigation:</span>
               </div>
 
               <div className="flex items-center gap-3 flex-wrap text-slate-300">
                 <Link to="/app/security?tab=findings" className="hover:text-blue-400 flex items-center gap-1">
-                  <span>Score (87)</span>
+                  <span>Score ({securityScore})</span>
                   <ArrowDown className="w-3 h-3 text-blue-400" />
                   <strong className="text-white">Security Findings</strong>
                 </Link>
                 <span className="text-slate-600">•</span>
                 <Link to="/app/alerts" className="hover:text-rose-400 flex items-center gap-1">
-                  <span>Alerts (3)</span>
+                  <span>Alerts ({activeAlertsCount})</span>
                   <ArrowDown className="w-3 h-3 text-rose-400" />
                   <strong className="text-white">Alert Center</strong>
                 </Link>
                 <span className="text-slate-600">•</span>
                 <Link to="/app/compliance" className="hover:text-cyan-400 flex items-center gap-1">
-                  <span>Compliance (92%)</span>
+                  <span>Compliance ({complianceStatusPercent}%)</span>
                   <ArrowDown className="w-3 h-3 text-cyan-400" />
                   <strong className="text-white">Compliance Controls</strong>
                 </Link>
                 <span className="text-slate-600">•</span>
-                <Link to="/app/privacy" className="hover:text-purple-400 flex items-center gap-1">
-                  <span>Privacy (5)</span>
-                  <ArrowDown className="w-3 h-3 text-purple-400" />
-                  <strong className="text-white">Privacy Center</strong>
+                <Link to="/app/vault" className="hover:text-indigo-400 flex items-center gap-1">
+                  <span>Vault ({vaultItemsCount} Saved)</span>
+                  <ArrowDown className="w-3 h-3 text-indigo-400" />
+                  <strong className="text-white">Email &amp; File Enclave</strong>
                 </Link>
               </div>
             </div>
@@ -358,7 +331,7 @@ Privacy Center     (/app/privacy)`}
 
       {/* Main Grid: Live Telemetry + Active Incidents */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left 2 Cols: Live Attack Ingestion Feed */}
+        {/* Left 2 Cols: Live Attack & Vault Ingestion Feed */}
         <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4">
           <div className="flex items-center justify-between pb-3 border-b border-slate-200">
             <div className="flex items-center gap-2.5">
@@ -367,10 +340,10 @@ Privacy Center     (/app/privacy)`}
               </div>
               <div>
                 <h3 className="text-sm font-bold text-slate-900">
-                  Live Perimeter Threat Mitigation Feed
+                  Live Perimeter &amp; Vault Digestion Feed
                 </h3>
                 <p className="text-[11px] text-slate-500 font-mono">
-                  Autonomous Edge Quarantine Engine (142,890 events today)
+                  Real-time events ingested from WAF, Edge, and Secure Vault uploads
                 </p>
               </div>
             </div>
@@ -378,7 +351,7 @@ Privacy Center     (/app/privacy)`}
               to="/app/alerts"
               className="text-xs text-blue-600 font-bold hover:underline flex items-center gap-1"
             >
-              <span>View Alert Center (3 Active)</span>
+              <span>View Alert Center ({activeAlertsCount} Active)</span>
               <ArrowUpRight className="w-3 h-3" />
             </Link>
           </div>
@@ -387,19 +360,25 @@ Privacy Center     (/app/privacy)`}
             {events.map((ev) => (
               <div key={ev.id} className="py-3 flex items-start justify-between gap-3 text-xs">
                 <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className={`px-2 py-0.5 rounded font-mono text-[10px] font-bold ${
-                      ev.severity === 'critical' ? 'bg-rose-100 text-rose-700' :
-                      ev.severity === 'high' ? 'bg-amber-100 text-amber-700' :
-                      'bg-blue-100 text-blue-700'
-                    }`}>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span
+                      className={`px-2 py-0.5 rounded font-mono text-[10px] font-bold ${
+                        ev.severity === 'critical'
+                          ? 'bg-rose-100 text-rose-700'
+                          : ev.severity === 'high'
+                          ? 'bg-amber-100 text-amber-700'
+                          : 'bg-blue-100 text-blue-700'
+                      }`}
+                    >
                       {ev.severity.toUpperCase()}
                     </span>
                     <span className="font-bold text-slate-900">{ev.attackType}</span>
-                    <span className="font-mono text-slate-400 text-[11px]">from {ev.ip} ({ev.country})</span>
+                    <span className="font-mono text-slate-400 text-[11px]">
+                      from {ev.ip} ({ev.country})
+                    </span>
                   </div>
                   <div className="text-slate-500 text-[11px]">
-                    Mitigated by <strong className="text-slate-700 font-mono">#{ev.featureId} {ev.featureName}</strong>
+                    Processed by <strong className="text-slate-700 font-mono">#{ev.featureId} {ev.featureName}</strong>
                   </div>
                 </div>
 
@@ -407,9 +386,7 @@ Privacy Center     (/app/privacy)`}
                   <span className="inline-block px-2 py-0.5 rounded-full bg-green-50 border border-green-200 text-green-700 font-mono font-bold text-[10px]">
                     {ev.actionTaken}
                   </span>
-                  <div className="text-[10px] text-slate-400 font-mono mt-0.5">
-                    {ev.timestamp}
-                  </div>
+                  <div className="text-[10px] text-slate-400 font-mono mt-0.5">{ev.timestamp}</div>
                 </div>
               </div>
             ))}
@@ -424,23 +401,23 @@ Privacy Center     (/app/privacy)`}
               <div className="flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-rose-600" />
                 <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900">
-                  Active Alerts (3)
+                  Active Alerts ({activeAlertsCount})
                 </h4>
               </div>
               <span className="px-2 py-0.5 rounded bg-rose-100 text-rose-700 font-mono text-[10px] font-bold">
-                P1 ESCALATION
+                {activeAlertsCount > 0 ? 'P1 ESCALATION' : 'ALL CLEAR'}
               </span>
             </div>
 
             <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2 text-xs">
-              <div className="font-bold text-slate-900">
-                {latestAlert?.title || 'No active alerts'}
-              </div>
+              <div className="font-bold text-slate-900">{latestAlert?.title || 'No active alerts'}</div>
               <p className="text-slate-600 text-[11px] leading-relaxed line-clamp-2">
                 {latestAlert?.description || 'No active incident detected.'}
               </p>
               <div className="pt-2 flex items-center justify-between text-[11px] font-mono">
-                <span className="text-slate-500">{latestAlert?.timestamp || latestAlert?.createdAt || 'Unknown'}</span>
+                <span className="text-slate-500">
+                  {latestAlert?.timestamp || latestAlert?.createdAt || 'Unknown'}
+                </span>
                 <Link
                   to="/app/alerts"
                   className="px-2.5 py-1 rounded bg-rose-600 text-white font-bold hover:bg-rose-700 transition-colors"
@@ -462,7 +439,9 @@ Privacy Center     (/app/privacy)`}
             >
               <div className="flex items-center gap-2">
                 <Upload className="w-4 h-4 text-indigo-600" />
-                <span>Upload &amp; Protect Emails &amp; Information</span>
+                <span>
+                  Vault: {vaultItemsCount} Saved ({quarantinedVaultCount} Quarantined)
+                </span>
               </div>
               <ArrowUpRight className="w-3.5 h-3.5 text-indigo-500" />
             </Link>
@@ -473,7 +452,7 @@ Privacy Center     (/app/privacy)`}
             >
               <div className="flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-blue-600" />
-                <span>Review 4 Security Findings</span>
+                <span>Review {openFindings.length} Security Findings</span>
               </div>
               <ArrowUpRight className="w-3.5 h-3.5 text-slate-400" />
             </Link>
@@ -484,7 +463,7 @@ Privacy Center     (/app/privacy)`}
             >
               <div className="flex items-center gap-2">
                 <Server className="w-4 h-4 text-emerald-600" />
-                <span>Manage 24 Protected Assets</span>
+                <span>Manage {protectedAssetsCount} Protected Assets</span>
               </div>
               <ArrowUpRight className="w-3.5 h-3.5 text-slate-400" />
             </Link>
@@ -495,7 +474,7 @@ Privacy Center     (/app/privacy)`}
             >
               <div className="flex items-center gap-2">
                 <Lock className="w-4 h-4 text-purple-600" />
-                <span>Process 5 DSAR Privacy Requests</span>
+                <span>Process {privacyRequestsCount} DSAR Privacy Requests</span>
               </div>
               <ArrowUpRight className="w-3.5 h-3.5 text-slate-400" />
             </Link>
@@ -506,7 +485,7 @@ Privacy Center     (/app/privacy)`}
             >
               <div className="flex items-center gap-2">
                 <FileCheck2 className="w-4 h-4 text-cyan-600" />
-                <span>Compliance Controls (92% Pass Rate)</span>
+                <span>Compliance Controls ({complianceStatusPercent}% Pass Rate)</span>
               </div>
               <ArrowUpRight className="w-3.5 h-3.5 text-slate-400" />
             </Link>
@@ -549,12 +528,8 @@ Privacy Center     (/app/privacy)`}
                   ACTIVE
                 </span>
               </div>
-              <h4 className="text-xs font-bold text-slate-900 group-hover:text-blue-700">
-                {set.title}
-              </h4>
-              <p className="text-[11px] text-slate-500 line-clamp-2">
-                {set.desc}
-              </p>
+              <h4 className="text-xs font-bold text-slate-900 group-hover:text-blue-700">{set.title}</h4>
+              <p className="text-[11px] text-slate-500 line-clamp-2">{set.desc}</p>
             </Link>
           ))}
         </div>

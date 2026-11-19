@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { useWorkspace } from '../hooks/useWorkspace';
 import { AutomationRule } from '../types';
+import { authFetch } from '../services/skyguardApi';
 
 export default function AutomationCenter() {
   const { activeWorkspace, logAuditEvent } = useWorkspace();
@@ -118,7 +119,7 @@ export default function AutomationCenter() {
     setIsTestingWebhook(true);
     setTestingChannelId(channelId);
     try {
-      const res = await fetch('/api/automation/webhook/test', {
+      const res = await authFetch('/api/automation/webhook/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

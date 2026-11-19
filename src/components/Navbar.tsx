@@ -201,13 +201,22 @@ export default function Navbar({ onOpenRadar }: NavbarProps) {
 
               {/* Console Link if authenticated */}
               {isAuthenticated && (
-                <Link
-                  to="/app/dashboard"
-                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded bg-blue-500/20 border border-blue-500/40 text-blue-300 hover:text-white transition-colors text-xs font-bold font-mono"
-                >
-                  <LayoutDashboard className="w-3.5 h-3.5" />
-                  <span>Open Console</span>
-                </Link>
+                <div className="flex items-center gap-2">
+                  <Link
+                    to="/app/dashboard"
+                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded bg-blue-500/20 border border-blue-500/40 text-blue-300 hover:text-white transition-colors text-xs font-bold font-mono"
+                  >
+                    <LayoutDashboard className="w-3.5 h-3.5" />
+                    <span>Open Console</span>
+                  </Link>
+                  <Link
+                    to="/app/command"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-sky-500/20 border border-sky-500/40 text-sky-300 hover:text-white transition-colors text-xs font-bold font-mono"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Command Intel</span>
+                  </Link>
+                </div>
               )}
             </nav>
           </div>

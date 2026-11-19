@@ -435,6 +435,22 @@ export type VaultItemType = 'email' | 'document' | 'secret' | 'personal_data' | 
 export type VaultDlpStatus = 'CLEAN' | 'FLAGGED_PII' | 'SUSPICIOUS_PHISHING' | 'SECRETS_DETECTED';
 export type VaultMonitoringStatus = 'ACTIVE_MONITORING' | 'PROTECTED' | 'QUARANTINED';
 
+export interface VaultDigestSummary {
+  alertId?: string;
+  findingId?: string;
+  eventId?: string;
+  activityEventId?: string;
+  scoreImpact: number;
+  indicators: {
+    emails: string[];
+    urls: string[];
+    secretsCount: number;
+    piiCount: number;
+    suspiciousKeywords: string[];
+    headers?: Record<string, string>;
+  };
+}
+
 export interface VaultItem {
   id: string;
   workspaceId: string;
@@ -442,6 +458,8 @@ export interface VaultItem {
   type: VaultItemType;
   fileName?: string;
   fileSize?: string;
+  byteSize?: number;
+  mimeType?: string;
   contentSnippet: string;
   rawContent?: string;
   encryption: string;
@@ -453,6 +471,7 @@ export interface VaultItem {
   uploadedAt: string;
   lastScannedAt: string;
   uploadedBy: string;
+  digestSummary?: VaultDigestSummary;
 }
 
 export interface ButtonAuditItem {

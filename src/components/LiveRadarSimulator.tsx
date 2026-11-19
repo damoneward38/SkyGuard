@@ -12,6 +12,7 @@ import {
   Terminal
 } from 'lucide-react';
 import { SecurityEvent } from '../types';
+import { authFetch } from '../services/skyguardApi';
 
 interface LiveRadarSimulatorProps {
   isOpen: boolean;
@@ -86,8 +87,8 @@ export default function LiveRadarSimulator({ isOpen, onClose }: LiveRadarSimulat
   const loadLiveTelemetry = async () => {
     try {
       const [evtRes, monRes] = await Promise.all([
-        fetch('/api/events'),
-        fetch('/api/monitoring/status'),
+        authFetch('/api/events'),
+        authFetch('/api/monitoring/status'),
       ]);
       if (evtRes.ok) {
         const evtData = await evtRes.json();
@@ -128,7 +129,7 @@ export default function LiveRadarSimulator({ isOpen, onClose }: LiveRadarSimulat
   const handleRunLiveAuditSweep = async () => {
     setIsRefreshing(true);
     try {
-      await fetch('/api/e2e/execute', {
+      await authFetch('/api/e2e/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ scenario: 'LIVE_RADAR_PERIMETER_SWEEP', workspaceId: 'workspace_123' }),

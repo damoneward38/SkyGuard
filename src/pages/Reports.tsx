@@ -11,6 +11,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
+import { authFetch } from '../services/skyguardApi';
 
 export default function Reports() {
   const { user } = useAuth();
@@ -27,7 +28,7 @@ export default function Reports() {
     let liveMetrics: any = null;
     let liveAuditCount = 0;
     try {
-      const [monRes, audRes] = await Promise.all([fetch('/api/monitoring/status'), fetch('/api/audit')]);
+      const [monRes, audRes] = await Promise.all([authFetch('/api/monitoring/status'), authFetch('/api/audit')]);
       if (monRes.ok) liveMetrics = await monRes.json();
       if (audRes.ok) {
         const audData = await audRes.json();

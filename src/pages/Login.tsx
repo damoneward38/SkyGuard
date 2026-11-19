@@ -78,7 +78,8 @@ export default function Login() {
       setTimeout(() => {
         navigate(targetPath, { replace: true });
       }, 300);
-    } catch {
+    } catch (err: any) {
+      setAuthError(err?.message || 'Demo login failed.');
       setIsSubmitting(false);
     }
   };
@@ -103,6 +104,8 @@ export default function Login() {
       setTimeout(() => {
         navigate(targetPath, { replace: true });
       }, 300);
+    } catch (err: any) {
+      setAuthError(err?.message || 'SSO login failed. Please try again.');
     } finally {
       setIsSubmitting(false);
       setSsoProvider(null);

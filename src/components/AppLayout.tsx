@@ -20,13 +20,16 @@ import {
   Server,
   Layers,
   Upload,
-  CreditCard
+  CreditCard,
+  Cpu
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
+import { useSecurityData } from '../features/security/SecurityDataContext';
 import LiveRadarSimulator from './LiveRadarSimulator';
 
 export default function AppLayout() {
   const { user, logout, switchRole } = useAuth();
+  const { state } = useSecurityData();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -34,10 +37,16 @@ export default function AppLayout() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
 
+  const openAlertsCount = state.alerts.filter(
+    (a) => a.status === 'new' || a.status === 'open' || a.status === 'investigating'
+  ).length;
+  const vaultCount = state.vaultItems.length;
+
   const navItems = [
+    { label: 'Command & AI Intel', path: '/app/command', icon: Cpu, badge: 'Gemini', badgeColor: 'bg-sky-100 text-sky-700' },
     { label: 'Dashboard', path: '/app/dashboard', icon: LayoutDashboard, badge: 'Live' },
     { label: 'Checkout & Licensing', path: '/app/checkout', icon: CreditCard, badge: 'Plans', badgeColor: 'bg-emerald-100 text-emerald-700' },
-    { label: 'Secure Vault & Ingestion', path: '/app/vault', icon: Upload, badge: 'Protected', badgeColor: 'bg-emerald-100 text-emerald-700' },
+    { label: 'Secure Vault & Ingestion', path: '/app/vault', icon: Upload, badge: `${vaultCount} Saved`, badgeColor: 'bg-indigo-100 text-indigo-700' },
     { label: 'Workspaces Topology', path: '/app/workspaces', icon: Layers, badge: 'Enclaves', badgeColor: 'bg-indigo-100 text-indigo-700' },
     { label: '1. Security Center', path: '/app/security', icon: Shield, badge: 'WAF/ZT' },
     { label: '2. Privacy Center', path: '/app/privacy', icon: Lock, badge: 'GDPR' },
@@ -46,12 +55,11 @@ export default function AppLayout() {
     { label: '5. Automation Center', path: '/app/automation', icon: Sparkles, badge: 'SOAR' },
     { label: '6. Platform Center', path: '/app/platform', icon: Server, badge: 'Gov' },
     { label: 'Operations & Labs', path: '/app/operations', icon: Activity, badge: 'E2E/Load', badgeColor: 'bg-purple-100 text-purple-700' },
-    { label: 'Alerts & Triage', path: '/app/alerts', icon: AlertTriangle, badge: '1 Open', badgeColor: 'bg-rose-100 text-rose-700' },
+    { label: 'Alerts & Triage', path: '/app/alerts', icon: AlertTriangle, badge: `${openAlertsCount} Open`, badgeColor: openAlertsCount > 0 ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700' },
     { label: 'Assets & Inventory', path: '/app/assets', icon: Layers },
     { label: 'Audit & Reports', path: '/app/reports', icon: BarChart3 },
     { label: 'Active Sessions', path: '/app/sessions', icon: Server },
     { label: 'Integrations', path: '/app/integrations', icon: Plug },
-    { label: 'Billing & Checkout', path: '/app/checkout', icon: CreditCard, badge: 'Full Page', badgeColor: 'bg-emerald-100 text-emerald-700' },
   ];
 
   const handleLogout = () => {

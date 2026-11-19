@@ -14,11 +14,17 @@ import {
   Sparkles
 } from 'lucide-react';
 import { initialIntegrations } from '../services/mockSecurityApi';
-import { skyguardApi } from '../services/skyguardApi';
+import { skyguardApi, authFetch } from '../services/skyguardApi';
+import { useSecurityData } from '../features/security/SecurityDataContext';
 import { IntegrationConnector } from '../types';
 
 export default function Integrations() {
-  const [connectors, setConnectors] = useState<IntegrationConnector[]>(initialIntegrations);
+  const { state, updateCollection, refresh } = useSecurityData();
+  const connectors = state.integrations.length > 0 ? state.integrations : initialIntegrations;
+  const setConnectors = (updater: IntegrationConnector[] | ((prev: IntegrationConnector[]) => IntegrationConnector[])) => {
+    const next = typeof updater === 'function' ? updater(connectors) : updater;
+    updateCollection('integrations', next);
+  };
   const [syncingId, setSyncingId] = useState<string | null>(null);
   const [isAddingWebhook, setIsAddingWebhook] = useState(false);
   const [webhookUrl, setWebhookUrl] = useState('');
@@ -39,7 +45,7 @@ export default function Integrations() {
     setSyncingId(id);
     try {
       const targetConnector = connectors.find((c) => c.id === id);
-      const res = await fetch('/api/automation/webhook/test', {
+      const res = await authFetch('/api/automation/webhook/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -86,6 +92,7 @@ export default function Integrations() {
         url: webhookUrl.trim(),
       });
       setConnectors([...connectors, result.connector]);
+      await refresh();
       setWebhookName('');
       setWebhookUrl('');
       setIsAddingWebhook(false);

@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { privacyFeatures } from '../services/mockSecurityApi';
 import { useSecurityData } from '../features/security/SecurityDataContext';
+import { skyguardApi } from '../services/skyguardApi';
 import { DsarRequest, ConsentRecord } from '../types';
 
 export default function PrivacyCenter() {
@@ -48,7 +49,7 @@ export default function PrivacyCenter() {
     setSearchParams({ tab });
   };
 
-  const { state, updateCollection } = useSecurityData();
+  const { state, updateCollection, refresh } = useSecurityData();
   const consents = state.consentRecords;
   const setConsents = (updater: ConsentRecord[] | ((previous: ConsentRecord[]) => ConsentRecord[])) => updateCollection('consentRecords', updater);
   const [searchQuery, setSearchQuery] = useState('');
@@ -92,34 +93,31 @@ export default function PrivacyCenter() {
   };
 
   // Capability 1 & 2 & 3: Create consent record + Record timestamp + Record consent source
-  const handleCreateConsent = (e: React.FormEvent) => {
+  const handleCreateConsent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newEmail.trim()) return;
 
-    const generatedSubId = newSubjectId.trim() || `usr_${Math.floor(Math.random() * 899999 + 100000)}`;
-    const nowIso = new Date().toISOString();
-    const randomHash = '0x' + Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+    try {
+      const result = await skyguardApi.createConsentRecord({
+        subjectEmail: newEmail.trim(),
+        subjectId: newSubjectId.trim() || undefined,
+        purposes: selectedPurposes.length > 0 ? selectedPurposes : ['Essential Cookies'],
+        source: newSource,
+        legalBasis,
+      });
 
-    const newRecord: ConsentRecord = {
-      id: `REC-CSNT-${Math.floor(Math.random() * 89999 + 10000)}`,
-      subjectEmail: newEmail.trim(),
-      subjectId: generatedSubId,
-      purposes: selectedPurposes.length > 0 ? selectedPurposes : ['Essential Cookies'],
-      status: 'active',
-      source: newSource,
-      timestamp: nowIso,
-      legalBasis: legalBasis,
-      ipAddress: '192.0.2.14 (Verified Cloudflare Edge)',
-      signatureHash: randomHash
-    };
+      const newRecord: ConsentRecord = result.record;
+      setConsents([newRecord, ...consents]);
+      await refresh();
+      setNewEmail('');
+      setNewSubjectId('');
+      setIsCreatingConsent(false);
 
-    setConsents([newRecord, ...consents]);
-    setNewEmail('');
-    setNewSubjectId('');
-    setIsCreatingConsent(false);
-
-    setNotificationMsg(`Consent Record [${newRecord.id}] created and cryptographically signed in the tamper-evident ledger.`);
-    setTimeout(() => setNotificationMsg(null), 4000);
+      setNotificationMsg(`Consent Record [${newRecord.id}] created and cryptographically signed in the tamper-evident ledger.`);
+      setTimeout(() => setNotificationMsg(null), 4000);
+    } catch (err: any) {
+      setNotificationMsg(err.message || 'Failed to persist signed consent record.');
+    }
   };
 
   // Capability 4: Export consent history
@@ -160,42 +158,50 @@ export default function PrivacyCenter() {
   };
 
   // Capability 5: Withdraw consent
-  const handleWithdrawConsent = (id: string) => {
+  const handleWithdrawConsent = async (id: string) => {
     const target = consents.find((c) => c.id === id);
     if (!target) return;
 
-    setConsents((prev) =>
-      prev.map((c) =>
-        c.id === id
-          ? {
-              ...c,
-              status: 'withdrawn',
-              legalBasis: 'Revoked by Data Subject (GDPR Art. 7(3))',
-              timestamp: new Date().toISOString()
-            }
-          : c
-      )
-    );
-
-    setNotificationMsg(`Consent withdrawn for ${target.subjectEmail}. Revocation ledger block generated.`);
-    setTimeout(() => setNotificationMsg(null), 4000);
+    try {
+      const result = await skyguardApi.withdrawConsentRecord(id, target.subjectEmail);
+      setConsents((prev) =>
+        prev.map((c) =>
+          c.id === id
+            ? {
+                ...c,
+                status: 'withdrawn',
+                legalBasis: 'Revoked by Data Subject (GDPR Art. 7(3))',
+                timestamp: result.timestamp || new Date().toISOString(),
+              }
+            : c
+        )
+      );
+      await refresh();
+      setNotificationMsg(`Consent withdrawn for ${target.subjectEmail}. Revocation ledger block [${result.revocationHash.slice(0, 14)}...] generated.`);
+      setTimeout(() => setNotificationMsg(null), 4000);
+    } catch (err: any) {
+      setNotificationMsg(err.message || 'Failed to withdraw consent record.');
+    }
   };
 
-  // Crypto shredding handler
-  const handleExecuteShred = (e: React.FormEvent) => {
+  // Crypto shredding handler backed by POST /api/privacy/shred
+  const handleExecuteShred = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!shredKeyInput.trim()) return;
 
     setIsShredding(true);
     setShredResult(null);
 
-    setTimeout(() => {
-      setIsShredding(false);
-      setShredResult(
-        `Cryptographic Key [${shredKeyInput}] permanently destroyed from HSM Enclave. All linked ciphertext is mathematically unrecoverable. Certificate of Destruction issued: #SHRED-REC-2026-${Math.floor(Math.random() * 8999 + 1000)}`
-      );
+    try {
+      const result = await skyguardApi.executeCryptoShred(shredKeyInput.trim());
+      setShredResult(`${result.message} (SHA-256 Proof: ${result.sha256Proof})`);
       setShredKeyInput('');
-    }, 1200);
+      await refresh();
+    } catch (err: any) {
+      setShredResult(err.message || 'Cryptographic shred request failed.');
+    } finally {
+      setIsShredding(false);
+    }
   };
 
   const handleUpdateDsarStatus = (id: string, newStatus: DsarRequest['status']) => {

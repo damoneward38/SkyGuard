@@ -16,6 +16,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { authFetch } from '../services/skyguardApi';
 
 interface FeatureDetailModalProps {
   feature: Feature | null;
@@ -41,7 +42,7 @@ export default function FeatureDetailModal({ feature, onClose }: FeatureDetailMo
     setIsRunning(true);
     setTestOutput(null);
     try {
-      const res = await fetch('/api/security/audit-scan');
+      const res = await authFetch('/api/security/audit-scan');
       const data = await res.json();
       setTestOutput(
         `Hardware Enclave Verified [AES-256-GCM / SHA-256 HMAC ${data.auditSignature?.slice(0, 16)}...]: ${feature.verificationOutput || 'Zero policy deviations detected.'} (Live Security Score: ${data.overallScore}%)`

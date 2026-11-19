@@ -22,6 +22,7 @@ import {
   Filter
 } from 'lucide-react';
 import { useSecurityData } from '../features/security/SecurityDataContext';
+import { skyguardApi } from '../services/skyguardApi';
 import { WafRule, ZeroTrustPolicy, SecurityFinding, ProtectedAsset } from '../types';
 
 export default function SecurityCenter() {
@@ -33,15 +34,13 @@ export default function SecurityCenter() {
       : 'findings'
   );
 
-  const { state, updateCollection } = useSecurityData();
+  const { state, updateCollection, refresh } = useSecurityData();
   const findings = state.findings;
   const protectedAssets = state.protectedAssets;
   const wafRules = state.wafRules;
   const ztPolicies = state.zeroTrustPolicies;
   const setFindings = (updater: SecurityFinding[] | ((previous: SecurityFinding[]) => SecurityFinding[])) => updateCollection('findings', updater);
-  const setProtectedAssets = (updater: ProtectedAsset[] | ((previous: ProtectedAsset[]) => ProtectedAsset[])) => updateCollection('protectedAssets', updater);
   const setWafRules = (updater: WafRule[] | ((previous: WafRule[]) => WafRule[])) => updateCollection('wafRules', updater);
-  const setZtPolicies = (updater: ZeroTrustPolicy[] | ((previous: ZeroTrustPolicy[]) => ZeroTrustPolicy[])) => updateCollection('zeroTrustPolicies', updater);
   
   const [isAddingRule, setIsAddingRule] = useState(false);
   const [newRuleName, setNewRuleName] = useState('');
@@ -70,48 +69,55 @@ export default function SecurityCenter() {
     .reduce((acc, curr) => acc + curr.scoreImpact, 0);
   const currentSecurityScore = Math.max(0, 100 - openScoreDeductions);
 
-  const handleRemediateFinding = (id: string) => {
-    const target = findings.find(f => f.id === id);
+  const handleRemediateFinding = async (id: string) => {
+    const target = findings.find((f) => f.id === id);
     if (!target) return;
 
-    setFindings(prev => prev.map(f => f.id === id ? { ...f, status: 'resolved' } : f));
-    setFindingSuccessMsg(`Remediation applied for [${target.title}]. Security score restored +${target.scoreImpact} pts!`);
-    
-    setTimeout(() => {
-      setFindingSuccessMsg(null);
-    }, 3500);
+    try {
+      const result = await skyguardApi.remediateFinding(id, target.title);
+      setFindings((prev) => prev.map((f) => (f.id === id ? { ...f, status: 'resolved' } : f)));
+      await refresh();
+      setFindingSuccessMsg(
+        `Remediation applied for [${target.title}] (Proof ${result.remediationHash}). Security score restored +${target.scoreImpact} pts!`
+      );
+      setTimeout(() => setFindingSuccessMsg(null), 4000);
+    } catch (err: any) {
+      setFindingSuccessMsg(err.message || 'Failed to apply remediation on server.');
+    }
   };
 
-  const toggleRuleStatus = (id: string) => {
-    setWafRules((prev) =>
-      prev.map((r) => {
-        if (r.id === id) {
-          const nextStatus = r.status === 'active' ? 'disabled' : 'active';
-          return { ...r, status: nextStatus };
-        }
-        return r;
-      })
-    );
+  const toggleRuleStatus = async (id: string) => {
+    const existing = wafRules.find((r) => r.id === id);
+    if (!existing) return;
+    const nextStatus = existing.status === 'active' ? 'disabled' : 'active';
+    try {
+      await skyguardApi.toggleWafRule(id, nextStatus);
+      setWafRules((prev) => prev.map((r) => (r.id === id ? { ...r, status: nextStatus } : r)));
+      await refresh();
+    } catch (err: any) {
+      setFindingSuccessMsg(err.message || 'Failed to toggle WAF rule.');
+    }
   };
 
-  const handleAddRule = (e: React.FormEvent) => {
+  const handleAddRule = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newRuleName.trim()) return;
 
-    const newRule: WafRule = {
-      id: `waf_rule_${Math.floor(Math.random() * 899 + 100)}`,
-      name: newRuleName,
-      type: newRuleType,
-      status: 'active',
-      action: newRuleAction,
-      matchedLast24h: 0,
-      updatedAt: new Date().toISOString(),
-      severity: 'high',
-    };
-
-    setWafRules([newRule, ...wafRules]);
-    setNewRuleName('');
-    setIsAddingRule(false);
+    try {
+      const res = await skyguardApi.createWafRule({
+        name: newRuleName.trim(),
+        type: newRuleType,
+        action: newRuleAction,
+      });
+      setWafRules([res.rule, ...wafRules]);
+      await refresh();
+      setNewRuleName('');
+      setIsAddingRule(false);
+      setFindingSuccessMsg(`WAF filter rule "${res.rule.name}" enforced across edge nodes.`);
+      setTimeout(() => setFindingSuccessMsg(null), 4000);
+    } catch (err: any) {
+      setFindingSuccessMsg(err.message || 'Failed to create WAF rule.');
+    }
   };
 
   const filteredAssets = protectedAssets.filter(asset => {
@@ -132,7 +138,7 @@ export default function SecurityCenter() {
             Security Center &amp; Posture Management
           </h1>
           <p className="text-xs text-slate-500 font-mono mt-0.5">
-            Security Findings • 24 Protected Assets • L7 WAF Shield • Zero-Trust Micro-segmentation
+            Security Findings • {protectedAssets.length} Protected Assets • L7 WAF Shield • Zero-Trust Micro-segmentation
           </p>
         </div>
 
@@ -203,7 +209,7 @@ export default function SecurityCenter() {
           <Server className="w-3.5 h-3.5" />
           <span>Protected Assets</span>
           <span className="px-1.5 py-0.5 rounded-full bg-slate-200 text-slate-700 text-[10px] font-mono">
-            24
+            {protectedAssets.length}
           </span>
         </button>
 
@@ -331,7 +337,7 @@ export default function SecurityCenter() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
               <div>
                 <h3 className="text-base font-bold text-slate-900">
-                  Protected Sovereign Assets (24 Total Enclaves)
+                  Protected Sovereign Assets ({protectedAssets.length} Total Enclaves)
                 </h3>
                 <p className="text-xs text-slate-500 font-mono">
                   All workloads secured with hardware roots of trust &amp; cryptographic telemetry
@@ -346,7 +352,7 @@ export default function SecurityCenter() {
                   onChange={(e) => setAssetFilter(e.target.value)}
                   className="px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-800 font-mono focus:outline-none"
                 >
-                  <option value="all">All Asset Types (24)</option>
+                  <option value="all">All Asset Types ({protectedAssets.length})</option>
                   <option value="Kubernetes">Kubernetes Clusters</option>
                   <option value="Gateway">API Gateways</option>
                   <option value="KMS">KMS &amp; HSM Vaults</option>

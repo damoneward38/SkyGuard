@@ -28,6 +28,7 @@ import {
   Globe
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
+import { authFetch } from '../services/skyguardApi';
 
 interface PlanOption {
   id: 'basic' | 'pro' | 'enterprise' | 'whitelabel';
@@ -291,7 +292,7 @@ export default function Checkout() {
         cardBrand: 'Visa Sovereign',
       };
 
-      const res = await fetch('/api/checkout/process', {
+      const res = await authFetch('/api/checkout/process', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),

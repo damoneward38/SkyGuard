@@ -35,10 +35,11 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { useSecurityData } from '../features/security/SecurityDataContext';
+import { skyguardApi, authFetch } from '../services/skyguardApi';
 import { InventoryAsset, AssetCategory, EnclaveActivityEvent, EnclaveEventType } from '../types';
 
 export default function Assets() {
-  const { state, updateCollection } = useSecurityData();
+  const { state, updateCollection, refresh } = useSecurityData();
   const assets = state.inventoryAssets;
   const activityEvents = state.enclaveActivityEvents;
   const setAssets = (updater: InventoryAsset[] | ((previous: InventoryAsset[]) => InventoryAsset[])) => updateCollection('inventoryAssets', updater);
@@ -115,35 +116,27 @@ export default function Assets() {
     });
   }, [activityEvents, selectedPillar, selectedEventType]);
 
-  // Handle Add Asset
-  const handleAddAsset = (e: React.FormEvent) => {
+  // Handle Add Asset via server endpoint
+  const handleAddAsset = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newAssetName.trim() || !newAssetIdentifier.trim()) return;
 
-    const newId = `ast_${newAssetCategory.toLowerCase().substring(0, 3)}_${Math.floor(100 + Math.random() * 900)}`;
-    const newAsset: InventoryAsset = {
-      id: newId,
-      name: newAssetName.trim(),
-      category: newAssetCategory,
-      identifier: newAssetIdentifier.trim(),
-      parentApex: 'mycompany.com',
-      status: 'healthy',
-      ipOrHost: 'Zero-Trust Shielded Host',
-      environment: newAssetEnvironment,
-      monitoringActive: true,
-      compliancePassing: true,
-      securityScore: 100.0,
-      lastScan: 'Just now',
-      tags: ['SkyGuard Enclave Shield', 'SOC 2 Active'],
-      vulnerabilitiesCount: 0,
-      wafShielded: true,
-    };
-
-    setAssets([newAsset, ...assets]);
-    setShowAddModal(false);
-    setNewAssetName('');
-    setNewAssetIdentifier('');
-    notify(`Successfully registered asset [${newId}] under mycompany.com`);
+    try {
+      const result = await skyguardApi.registerAsset({
+        name: newAssetName.trim(),
+        category: newAssetCategory,
+        identifier: newAssetIdentifier.trim(),
+        environment: newAssetEnvironment,
+      });
+      setAssets([result.asset, ...assets]);
+      await refresh();
+      setShowAddModal(false);
+      setNewAssetName('');
+      setNewAssetIdentifier('');
+      notify(`Successfully registered asset [${result.asset.id}] under mycompany.com`);
+    } catch (err: any) {
+      notify(err.message || 'Failed to register asset.');
+    }
   };
 
   // Transmit live event into the sovereign pipeline
@@ -181,11 +174,10 @@ export default function Assets() {
       integration_connected: 'AWS Production Mesh Account',
     };
 
-    // Dispatch real event to backend API
+    let dispatchedId = `EVT-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`;
     try {
-      await fetch('/api/events', {
+      const res = await authFetch('/api/events', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           workspaceId: 'workspace_123',
           type: type === 'alert_resolved' ? 'security_alert' : 'telemetry_event',
@@ -197,12 +189,18 @@ export default function Assets() {
           correlationId: `corr_${Date.now()}`,
         }),
       });
+      if (res.ok) {
+        const payload = await res.json();
+        if (payload?.event?.id) {
+          dispatchedId = payload.event.id;
+        }
+      }
     } catch (err) {
-      console.warn('Backend event ingestion fallback:', err);
+      console.warn('Backend event ingestion error:', err);
     }
 
     const newEvent: EnclaveActivityEvent = {
-      id: `EVT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+      id: dispatchedId,
       type,
       title: titles[type],
       pillar: pillars[type],
@@ -212,7 +210,7 @@ export default function Assets() {
       timestamp: 'Just now',
       details: `Dispatched live telemetry packet through SkyGuard pipeline for ${titles[type]}.`,
       ipAddress: '10.0.1.14 (Enclave Ingress)',
-      evidenceDigest: `sha256:${Date.now().toString(16)}...`,
+      evidenceDigest: `sha256:${Date.now().toString(16)}`,
       status: 'success',
     };
 

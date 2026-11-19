@@ -1,5 +1,11 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { UserProfile, UserRole, UserSession } from '../../types';
+import {
+  getAuthToken,
+  setAuthToken,
+  clearAuthToken,
+  authFetch,
+} from '../../services/skyguardApi';
 
 interface AuthContextType {
   user: UserProfile | null;
@@ -7,7 +13,14 @@ interface AuthContextType {
   isLoading: boolean;
   sessions: UserSession[];
   login: (email: string, password?: string, role?: UserRole) => Promise<boolean>;
-  signup: (data: { name: string; email: string; company: string; plan?: 'basic' | 'pro' | 'enterprise' | 'whitelabel'; role?: UserRole }) => Promise<boolean>;
+  signup: (data: {
+    name: string;
+    email: string;
+    company: string;
+    password?: string;
+    plan?: 'basic' | 'pro' | 'enterprise' | 'whitelabel';
+    role?: UserRole;
+  }) => Promise<boolean>;
   logout: () => void;
   switchRole: (role: UserRole) => void;
   updatePlan: (plan: 'basic' | 'pro' | 'enterprise' | 'whitelabel') => void;
@@ -51,32 +64,23 @@ const INITIAL_SESSIONS: UserSession[] = [
     lastActive: '3 hours ago',
     isCurrent: false,
     trustedStatus: 'Hardware Enclave',
-  }
+  },
 ];
-
-const DEFAULT_DEMO_USER: UserProfile = {
-  id: 'usr_sec_99182',
-  name: 'Noam Almagor',
-  email: 'chief.security@skyguard.mesh',
-  role: 'owner',
-  tenantId: 'tnt_sovereign_enclave_01',
-  tenantName: 'SkyGuard Defense HQ',
-  plan: 'enterprise',
-  mfaEnabled: true,
-  emailVerified: true,
-  lastLogin: '2026-08-20T05:45:00Z',
-  activeSessions: INITIAL_SESSIONS
-};
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<UserProfile | null>(() => {
     try {
-      if (typeof window !== 'undefined' && sessionStorage.getItem('skyguard_logged_out') === 'true') {
+      if (typeof window === 'undefined') return null;
+      if (sessionStorage.getItem('skyguard_logged_out') === 'true') {
         return null;
       }
-      const saved = typeof window !== 'undefined' ? localStorage.getItem('skyguard_auth_user') : null;
+      if (!getAuthToken()) {
+        localStorage.removeItem('skyguard_auth_user');
+        return null;
+      }
+      const saved = localStorage.getItem('skyguard_auth_user');
       if (saved) {
         return JSON.parse(saved);
       }
@@ -86,7 +90,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return null;
   });
   const [sessions, setSessions] = useState<UserSession[]>(INITIAL_SESSIONS);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState<boolean>(() => Boolean(typeof window !== 'undefined' && getAuthToken()));
+
+  // Validate persisted bearer session against server on boot
+  useEffect(() => {
+    const token = getAuthToken();
+    if (!token) {
+      setIsLoading(false);
+      return;
+    }
+    let active = true;
+    authFetch('/api/auth/session')
+      .then(async (res) => {
+        if (!active) return;
+        if (!res.ok) {
+          clearAuthToken();
+          localStorage.removeItem('skyguard_auth_user');
+          setUser(null);
+          return;
+        }
+        const data = await res.json();
+        if (data?.authenticated && data?.user) {
+          setUser({ ...data.user, activeSessions: INITIAL_SESSIONS });
+        } else {
+          clearAuthToken();
+          localStorage.removeItem('skyguard_auth_user');
+          setUser(null);
+        }
+      })
+      .catch(() => {
+        // Keep optimistic saved state if transient network hiccup occurs during boot
+      })
+      .finally(() => {
+        if (active) setIsLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (user) {
@@ -97,55 +139,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [user]);
 
-  const login = async (email: string, _password?: string, role: UserRole = 'owner'): Promise<boolean> => {
+  const login = async (email: string, password?: string, role: UserRole = 'owner'): Promise<boolean> => {
     setIsLoading(true);
     sessionStorage.removeItem('skyguard_logged_out');
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password: _password, role }),
+        body: JSON.stringify({ email, password, role }),
       });
       const data = await res.json();
-      if (data.success && data.user) {
-        if (data.token) {
-          localStorage.setItem('skyguard_auth_token', data.token);
-        }
-        setUser(data.user);
-        setSessions(INITIAL_SESSIONS);
-        setIsLoading(false);
-        return true;
+      if (!res.ok || !data.success || !data.token || !data.user) {
+        throw new Error(data.error || `Authentication failed (${res.status})`);
       }
-    } catch (err) {
-      console.warn('Backend login endpoint unreachable, falling back to local enclave credentials:', err);
+      setAuthToken(data.token);
+      setUser({ ...data.user, activeSessions: INITIAL_SESSIONS });
+      setSessions(INITIAL_SESSIONS);
+      return true;
+    } finally {
+      setIsLoading(false);
     }
-    
-    const bytes = new Uint8Array(4);
-    window.crypto?.getRandomValues(bytes);
-    const hexId = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
-    const newUser: UserProfile = {
-      id: `usr_${hexId}`,
-      name: email.split('@')[0].replace('.', ' ').replace(/^./, (s) => s.toUpperCase()),
-      email: email,
-      role: role,
-      tenantId: 'tnt_sec_live_sandbox',
-      tenantName: 'Global Cyber Operations',
-      plan: 'enterprise',
-      mfaEnabled: true,
-      emailVerified: true,
-      lastLogin: new Date().toISOString(),
-      activeSessions: INITIAL_SESSIONS
-    };
-    setUser(newUser);
-    setSessions(INITIAL_SESSIONS);
-    setIsLoading(false);
-    return true;
   };
 
   const signup = async (data: {
     name: string;
     email: string;
     company: string;
+    password?: string;
     plan?: 'basic' | 'pro' | 'enterprise' | 'whitelabel';
     role?: UserRole;
   }): Promise<boolean> => {
@@ -160,7 +180,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const json = await res.json();
       if (res.ok && json.success && json.user) {
         if (json.token) {
-          localStorage.setItem('skyguard_auth_token', json.token);
+          setAuthToken(json.token);
         }
         setUser({ ...json.user, activeSessions: INITIAL_SESSIONS });
         setSessions(INITIAL_SESSIONS);
@@ -173,8 +193,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = () => {
-    fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
-    localStorage.removeItem('skyguard_auth_token');
+    authFetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+    clearAuthToken();
     localStorage.removeItem('skyguard_auth_user');
     sessionStorage.setItem('skyguard_logged_out', 'true');
     setUser(null);
@@ -183,6 +203,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const switchRole = (role: UserRole) => {
     if (user) {
       setUser({ ...user, role });
+      authFetch('/api/auth/role', {
+        method: 'POST',
+        body: JSON.stringify({ role }),
+      }).catch(() => {});
     }
   };
 
@@ -195,9 +219,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const verifyEmail = async (code: string): Promise<boolean> => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/auth/verify-email', {
+      const res = await authFetch('/api/auth/verify-email', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code }),
       });
       const data = await res.json();
@@ -244,9 +267,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const toggleMfa = async (enabled: boolean): Promise<boolean> => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/auth/mfa', {
+      const res = await authFetch('/api/auth/mfa', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ enabled }),
       });
       if (res.ok && user) {
@@ -266,12 +288,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setSessions((prev) => prev.filter((s) => s.isCurrent));
   };
 
-  // RBAC Permission Engine
-  // OWNER: Full access
-  // ADMIN: Security configuration
-  // SECURITY ANALYST: Alerts, Incidents, Reports
-  // PRIVACY OFFICER: GDPR, Consent, Data requests
-  // VIEWER: Read-only
   const canAccessModule = (module: 'security_config' | 'alerts_incidents' | 'privacy_governance' | 'full_admin' | 'read_only'): boolean => {
     if (!user) return false;
     const role = user.role;

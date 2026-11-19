@@ -28,12 +28,15 @@ import {
   SlidersHorizontal,
   ChevronRight
 } from 'lucide-react';
-import { initialAlerts, getSystemHealth } from '../services/mockSecurityApi';
+import { getSystemHealth } from '../services/mockSecurityApi';
 import { skyguardApi } from '../services/skyguardApi';
+import { useSecurityData } from '../features/security/SecurityDataContext';
 import { AlertIncident, AlertSeverity, AlertStatus, HealthCheckResponse } from '../types';
 
 export default function Alerts() {
-  const [alerts, setAlerts] = useState<AlertIncident[]>(initialAlerts);
+  const { state, updateCollection, refresh } = useSecurityData();
+  const alerts = state.alerts;
+  const setAlerts = (updater: AlertIncident[] | ((previous: AlertIncident[]) => AlertIncident[])) => updateCollection('alerts', updater);
   const [severityFilter, setSeverityFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -110,6 +113,7 @@ export default function Alerts() {
       setAlerts((prev) =>
         prev.map((a) => (a.id === id ? { ...a, status: newStatus, evidenceDigest: result.evidenceDigest } : a))
       );
+      await refresh();
       setActionSuccessMsg(`Updated status of [${id}] to "${newStatus.toUpperCase()}" (Proof: ${result.evidenceDigest}).`);
       setTimeout(() => setActionSuccessMsg(null), 3000);
     } catch (err: any) {
@@ -125,6 +129,7 @@ export default function Alerts() {
       setAlerts((prev) =>
         prev.map((a) => (a.id === id ? { ...a, assignedTo: assignee } : a))
       );
+      await refresh();
       setActionSuccessMsg(`Updated assignment of [${id}] to ${assignee ? `"${assignee}"` : 'null (Unassigned)'}.`);
       setTimeout(() => setActionSuccessMsg(null), 3000);
     } catch (err: any) {
@@ -142,6 +147,7 @@ export default function Alerts() {
       setAlerts((prev) =>
         prev.map((a) => (a.id === selectedIncident.id ? { ...a, status: 'resolved', evidenceDigest: result.evidenceDigest } : a))
       );
+      await refresh();
       setActionSuccessMsg(`Executed containment: [${action}] on target ${targetAsset}. Status marked as RESOLVED (Digest: ${result.evidenceDigest}).`);
       setSelectedIncident(null);
       setTimeout(() => setActionSuccessMsg(null), 4000);
@@ -167,6 +173,7 @@ export default function Alerts() {
 
       const newIncident = result.alert;
       setAlerts([newIncident, ...alerts]);
+      await refresh();
       setShowCreateModal(false);
       setNewAlertTitle('');
       setActionSuccessMsg(`Successfully registered new alert [${newIncident.id}] - "${newIncident.title}"`);
